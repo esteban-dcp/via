@@ -47,7 +47,7 @@ export const LeaderboardSheet = ({ currentUserId, onClose }: Props) => {
     (async () => {
       try {
         const { data, error } = await supabase
-          .from('users')
+          .from('public_profiles')
           .select('id, display_name, reputation')
           .order('reputation', { ascending: false })
           .limit(50);

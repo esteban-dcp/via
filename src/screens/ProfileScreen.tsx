@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -49,7 +51,7 @@ const statusBadgeVariant = (status: string) => {
 
 export const ProfileScreen = () => {
   const insets = useSafeAreaInsets();
-  const { profile, signOut, status, updateDisplayName, updatePreferredFuel } = useUserStore();
+  const { profile, signOut, deleteAccount, status, updateDisplayName, updatePreferredFuel } = useUserStore();
   const [reports, setReports] = useState<UserReport[]>([]);
   const [reportsLoading, setReportsLoading] = useState(true);
   const [showNameModal, setShowNameModal] = useState(false);
@@ -160,6 +162,31 @@ export const ProfileScreen = () => {
   const handleSignOut = useCallback(async () => {
     await signOut();
   }, [signOut]);
+
+  const handleDeleteAccount = useCallback(() => {
+    Alert.alert(
+      'Eliminar cuenta',
+      'Se borrarán tu perfil, favoritos y reputación. Esta acción no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteAccount();
+            } catch {
+              Alert.alert('No se pudo eliminar la cuenta', 'Inténtalo de nuevo más tarde.');
+            }
+          },
+        },
+      ],
+    );
+  }, [deleteAccount]);
+
+  const openPrivacy = useCallback(() => {
+    Linking.openURL(`${process.env.EXPO_PUBLIC_WEB_URL || 'https://via.siramong.qzz.io'}/privacy`).catch(() => {});
+  }, []);
 
   const signOutScale = useScalePress(0.96);
   const accessOptionScale = useScalePress(0.97);
@@ -331,6 +358,13 @@ export const ProfileScreen = () => {
             )}
           </Pressable>
         </Animated.View>
+
+        <Pressable style={styles.linkButton} onPress={openPrivacy} accessibilityRole="link" accessibilityLabel="Política de privacidad">
+          <Text style={styles.linkButtonText}>Política de privacidad</Text>
+        </Pressable>
+        <Pressable style={styles.linkButton} onPress={handleDeleteAccount} accessibilityRole="button" accessibilityLabel="Eliminar cuenta">
+          <Text style={[styles.linkButtonText, { color: colors.danger }]}>Eliminar cuenta</Text>
+        </Pressable>
       </ScrollView>
 
       {showLeaderboard && profile && (
@@ -623,6 +657,16 @@ const styles = StyleSheet.create({
   },
   fuelOptionTextSelected: {
     color: colors.accent,
+  },
+  linkButton: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  linkButtonText: {
+    ...typography.caption,
+    color: colors.textMuted,
+    textDecorationLine: 'underline',
   },
   dangerButton: {
     marginTop: spacing.xl,

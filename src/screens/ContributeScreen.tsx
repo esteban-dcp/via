@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  BackHandler,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
@@ -30,7 +32,7 @@ import type { FuelType, FuelPriceInput, StationMarker } from '../types';
 
 export const ContributeScreen = () => {
   const insets = useSafeAreaInsets();
-  const { profile, grantAccess, session } = useUserStore();
+  const { profile, refreshProfile, session } = useUserStore();
   const { coords } = useLocationStore();
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [prices, setPrices] = useState<FuelPriceInput>({});
@@ -47,6 +49,21 @@ export const ContributeScreen = () => {
   const [stationsLoading, setStationsLoading] = useState(false);
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(14);
+
+  const resetAllRef = useRef<() => void>(() => {});
+
+  useFocusEffect(
+    useCallback(() => {
+      if (step === 'camera') return undefined;
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (loading) return true;
+        if (step === 'confirm') setStep('review');
+        else resetAllRef.current();
+        return true;
+      });
+      return () => sub.remove();
+    }, [step, loading]),
+  );
 
   useEffect(() => {
     opacity.value = 0;
@@ -207,7 +224,7 @@ export const ContributeScreen = () => {
 
       if (reportError) throw reportError;
 
-      await grantAccess(2, 'valid_report');
+      await refreshProfile();
 
       toast.success('¡Reporte enviado! Ganaste +2 accesos.');
       setImageUri(null);
@@ -223,7 +240,7 @@ export const ContributeScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, [imageUri, session, profile, prices, selectedStation, grantAccess, coords, ocrRawText, ocrConfidence]);
+  }, [imageUri, session, profile, prices, selectedStation, refreshProfile, coords, ocrRawText, ocrConfidence]);
 
   const handleCrop = useCallback((croppedUri: string) => {
     setImageUri(croppedUri);
@@ -242,6 +259,7 @@ export const ContributeScreen = () => {
     setOcrError('');
     setStationsNearby([]);
   }, []);
+  resetAllRef.current = resetAll;
 
   const hasPrices = Object.values(prices).some((v) => typeof v === 'number' && v > 0);
   const hasStationsAvailable = !stationsLoading && stationsNearby.length > 0;

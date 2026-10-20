@@ -274,7 +274,6 @@ export const runOcrWithRetries = async (
   while (attempt <= maxRetries) {
     try {
       const rawText = await callOcrSpace(imageUri);
-      console.log('TEXTO CRUDO DEL OCR:', rawText);
 
       const { prices, confidence } = extractFuelPricesFromText(rawText);
 

@@ -5,7 +5,7 @@ import type { FuelType, UserProfile } from '../types';
 import { ensureUserProfile, refreshUserProfile, supabase } from '../services/supabase';
 import { consumeAccess as consumeAccessRpc, grantAccess as grantAccessRpc } from '../services/pricing';
 
-const WEB_BASE_URL = process.env.EXPO_PUBLIC_WEB_URL || 'https://via.siramong.tech';
+const WEB_BASE_URL = process.env.EXPO_PUBLIC_WEB_URL || 'https://via.siramong.qzz.io';
 
 type UserState = {
   session: Session | null;
@@ -16,6 +16,7 @@ type UserState = {
   signInWithGoogle: () => Promise<void>;
   setSessionFromTokens: (accessToken: string, refreshToken: string) => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   setSession: (session: Session | null) => void;
   refreshProfile: () => Promise<void>;
   consumeAccess: () => Promise<void>;
@@ -24,15 +25,26 @@ type UserState = {
   updatePreferredFuel: (fuelType: FuelType | null) => Promise<void>;
 };
 
-const ensureProfileWithRetry = async (session: Session, retries = 2): Promise<UserProfile | null> => {
-  for (let i = 0; i < retries; i++) {
-    try {
-      return await ensureUserProfile(session);
-    } catch {
-      if (i === retries - 1) return null;
+const inflightProfiles = new Map<string, Promise<UserProfile | null>>();
+
+const ensureProfileWithRetry = (session: Session, retries = 3): Promise<UserProfile | null> => {
+  const key = session.user.id;
+  const existing = inflightProfiles.get(key);
+  if (existing) return existing;
+
+  const run = (async () => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        return await ensureUserProfile(session);
+      } catch {
+        if (i < retries - 1) await new Promise((r) => setTimeout(r, 400 * (i + 1)));
+      }
     }
-  }
-  return null;
+    return null;
+  })().finally(() => inflightProfiles.delete(key));
+
+  inflightProfiles.set(key, run);
+  return run;
 };
 
 export const useUserStore = create<UserState>((set, get) => ({
@@ -83,9 +95,13 @@ export const useUserStore = create<UserState>((set, get) => ({
         return;
       }
       if (sessionData.session) {
-        set({ session: sessionData.session, status: 'ready' });
-        const profile = await ensureUserProfile(sessionData.session);
-        set({ profile });
+        const profile = await ensureProfileWithRetry(sessionData.session);
+        set({
+          session: sessionData.session,
+          profile,
+          status: profile ? 'ready' : 'error',
+          error: profile ? null : 'No se pudo crear tu perfil. Revisa tu conexión e inténtalo de nuevo.',
+        });
       }
       return;
     }
@@ -104,9 +120,13 @@ export const useUserStore = create<UserState>((set, get) => ({
       return;
     }
     if (data.session) {
-      set({ session: data.session, status: 'ready' });
-      const profile = await ensureUserProfile(data.session);
-      set({ profile });
+      const profile = await ensureProfileWithRetry(data.session);
+      set({
+        session: data.session,
+        profile,
+        status: profile ? 'ready' : 'error',
+        error: profile ? null : 'No se pudo crear tu perfil. Revisa tu conexión e inténtalo de nuevo.',
+      });
     }
   },
 
@@ -119,9 +139,8 @@ export const useUserStore = create<UserState>((set, get) => ({
         set({ status: 'error', error: error.message });
       } else {
         if (data.session) {
-          set({ session: data.session, status: 'ready' });
-          const profile = await ensureUserProfile(data.session);
-          set({ profile });
+          const profile = await ensureProfileWithRetry(data.session);
+          set({ session: data.session, profile, status: 'ready' });
         } else {
           set({ status: 'ready' });
         }
@@ -153,6 +172,13 @@ export const useUserStore = create<UserState>((set, get) => ({
   },
 
   signOut: async () => {
+    await supabase.auth.signOut();
+    set({ session: null, profile: null });
+  },
+
+  deleteAccount: async () => {
+    const { error } = await supabase.rpc('delete_my_account');
+    if (error) throw error;
     await supabase.auth.signOut();
     set({ session: null, profile: null });
   },

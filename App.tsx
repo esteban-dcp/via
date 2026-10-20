@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator, type BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { ContributeScreen } from './src/screens/ContributeScreen';
@@ -72,6 +72,9 @@ const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => 
           <Pressable
             key={route.key}
             onPress={onPress}
+            accessibilityRole="tab"
+            accessibilityLabel={options.title ?? route.name}
+            accessibilityState={{ selected: isFocused }}
             style={{
               flex: 1,
               height: 58,
@@ -96,7 +99,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => 
                 <Ionicons
                   name={isFocused ? cfg.focused : cfg.unfocused}
                   size={22}
-                  color={isFocused ? colors.primary : colors.textSecondary}
+                  color={isFocused ? colors.accent : colors.textSecondary}
                 />
               )}
             </View>
@@ -106,6 +109,9 @@ const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => 
 
       <Pressable
         onPress={handleFabPress}
+        accessibilityRole="button"
+        accessibilityLabel="Capturar precios de una estación"
+        hitSlop={8}
         style={{
           position: 'absolute',
           top: -42,
@@ -115,8 +121,8 @@ const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => 
           gap: 6,
           backgroundColor: colors.primary,
           paddingHorizontal: 16,
-          paddingVertical: 10,
-          borderRadius: 22,
+          paddingVertical: 14,
+          borderRadius: 24,
           shadowColor: colors.primary,
           shadowOpacity: 0.5,
           shadowRadius: 14,
@@ -145,8 +151,10 @@ const AppTabs = () => (
   </Tab.Navigator>
 );
 
+const navigationRef = createNavigationContainerRef();
+
 export default function App() {
-  const { session, profile, bootstrap, status } = useUserStore();
+  const { session, profile, bootstrap, status, error } = useUserStore();
   const notifListener = useRef<{ remove: () => void } | null>(null);
 
   useEffect(() => {
@@ -168,17 +176,34 @@ export default function App() {
 
   // Handle notification tap - navigate to map
   useEffect(() => {
-    notifListener.current = addNotificationResponseReceivedListener((response) => {
-      // User tapped a push notification — could navigate to specific station
-      // For now, no action needed since user is already in the app
+    notifListener.current = addNotificationResponseReceivedListener(() => {
+      if (navigationRef.isReady()) navigationRef.navigate('Map' as never);
     });
     return () => notifListener.current?.remove();
   }, []);
 
   if (status === 'idle' || status === 'loading') {
     return (
-      <View style={{ flex: 1, backgroundColor: '#011360', alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color="#4A7AF8" size="large" />
+      <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator color={colors.accent} size="large" />
+      </View>
+    );
+  }
+
+  if (status === 'error' && !session) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <Text style={{ color: colors.textPrimary, fontSize: 16, textAlign: 'center', marginBottom: 16 }}>
+          {error ?? 'No se pudo iniciar la aplicación.'}
+        </Text>
+        <Pressable
+          onPress={() => bootstrap()}
+          accessibilityRole="button"
+          accessibilityLabel="Reintentar"
+          style={{ minHeight: 48, paddingHorizontal: 24, justifyContent: 'center', borderRadius: 12, backgroundColor: colors.accent }}
+        >
+          <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>Reintentar</Text>
+        </Pressable>
       </View>
     );
   }
@@ -186,7 +211,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         {session ? <AppTabs /> : <AuthScreen />}
       </NavigationContainer>
       <ToastContainer />

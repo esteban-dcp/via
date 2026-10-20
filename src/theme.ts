@@ -17,7 +17,7 @@ export const colors = {
   accent: '#4A7AF8',
   textPrimary: '#F8F8F8',
   textSecondary: '#A6B0D6',
-  textMuted: 'rgba(166, 176, 214, 0.5)',
+  textMuted: 'rgba(166, 176, 214, 0.72)',
   border: 'rgba(255, 255, 255, 0.08)',
   borderLight: 'rgba(255, 255, 255, 0.04)',
 };

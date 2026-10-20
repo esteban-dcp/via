@@ -24,19 +24,28 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Permite a VIA acceder a tu ubicación para encontrar estaciones de combustible cercanas."
+          "locationWhenInUsePermission": "VIA usa tu ubicación para encontrar las estaciones de combustible más cercanas y baratas.",
+          "isAndroidBackgroundLocationEnabled": false
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Permite a VIA acceder a tus fotos.",
+          "photosPermission": "VIA necesita acceder a tus fotos para que puedas enviar reportes de precios.",
           "cameraPermission": "Permite a VIA acceder a tu cámara para capturar displays de surtidores."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "targetSdkVersion": 36,
+            "compileSdkVersion": 36
+          }
         }
       ]
     ],
     "ios": {
-      "supportsTablet": true,
       "bundleIdentifier": "com.siramong.via",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "VIA necesita acceso a tu ubicación para encontrar el combustible más barato cerca.",
@@ -56,13 +65,15 @@
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.CAMERA",
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "versionCode": 1,
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.ACCESS_BACKGROUND_LOCATION"
       ]
-    },
-    "web": {
-      "favicon": "./assets/favicon.png",
-      "bundleUrl": "https://cdn.jsdelivr.net/npm/@react-native-web@0.19"
     },
     "extra": {
       "eas": {

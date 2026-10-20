@@ -12,12 +12,17 @@ let watchSubscription: Location.LocationSubscription | null = null;
 export const requestLocation = async (): Promise<Coordinates> => {
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status !== 'granted') {
-    throw new Error('Location permission not granted.');
+    throw new Error('Permiso de ubicación denegado.');
   }
 
-  const position = await Location.getCurrentPositionAsync({
-    accuracy: Location.Accuracy.Highest,
-  });
+  const position = await Promise.race([
+    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 10000)),
+  ]).then(async (p) => p ?? (await Location.getLastKnownPositionAsync()));
+
+  if (!position) {
+    throw new Error('No se pudo obtener tu ubicación.');
+  }
 
   return {
     latitude: position.coords.latitude,
@@ -28,6 +33,7 @@ export const requestLocation = async (): Promise<Coordinates> => {
 const DISTANCE_THRESHOLD = 50;
 
 let lastCoords: Coordinates | null = null;
+let watchToken = 0;
 
 export const startWatchingLocation = async (
   onLocationUpdate: LocationCallback,
@@ -36,10 +42,11 @@ export const startWatchingLocation = async (
   if (status !== 'granted') return;
 
   stopWatchingLocation();
+  const token = ++watchToken;
 
-  watchSubscription = await Location.watchPositionAsync(
+  const subscription = await Location.watchPositionAsync(
     {
-      accuracy: Location.Accuracy.Highest,
+      accuracy: Location.Accuracy.Balanced,
       distanceInterval: DISTANCE_THRESHOLD,
       timeInterval: 15000,
     },
@@ -58,9 +65,17 @@ export const startWatchingLocation = async (
       }
     },
   );
+
+  // A newer start/stop superseded this call while awaiting: drop the stale subscription
+  if (token !== watchToken) {
+    subscription.remove();
+    return;
+  }
+  watchSubscription = subscription;
 };
 
 export const stopWatchingLocation = (): void => {
+  watchToken++;
   if (watchSubscription) {
     watchSubscription.remove();
     watchSubscription = null;

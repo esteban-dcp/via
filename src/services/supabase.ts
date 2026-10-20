@@ -36,8 +36,6 @@ export const ensureUserProfile = async (session: Session): Promise<UserProfile> 
     .insert({
       auth_id: authId,
       display_name: displayName,
-      reputation: 0,
-      access_remaining: 3,
     })
     .select('*')
     .single();
