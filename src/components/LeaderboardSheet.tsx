@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Dimensions, FlatList, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 import { Text } from './ui/Text';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../services/supabase';
-import { colors, radius, shadows, spacing, typography } from '../theme';
-
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SHEET_HEIGHT = SCREEN_HEIGHT * 0.7;
+import { colors, radius, spacing, typography } from '../theme';
+import { Sheet } from './ui/Sheet';
+import { Skeleton } from './ui/Skeleton';
 
 type LeaderboardEntry = {
   rank: number;
@@ -36,13 +34,7 @@ const MEDAL_COLORS: Record<number, string> = {
 export const LeaderboardSheet = ({ currentUserId, onClose }: Props) => {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const translateY = useSharedValue(SHEET_HEIGHT);
-  const backdropOpacity = useSharedValue(0);
-
-  useEffect(() => {
-    translateY.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
-    backdropOpacity.value = withTiming(1, { duration: 200 });
-  }, []);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -60,24 +52,12 @@ export const LeaderboardSheet = ({ currentUserId, onClose }: Props) => {
           isCurrentUser: u.id === currentUserId,
         }));
         setEntries(list);
-      } catch {}
+      } catch {
+        setFailed(true);
+      }
       setLoading(false);
     })();
   }, [currentUserId]);
-
-  const sheetStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-  }));
-
-  const backdropStyle = useAnimatedStyle(() => ({
-    opacity: backdropOpacity.value,
-  }));
-
-  const handleClose = useCallback(() => {
-    translateY.value = withTiming(SHEET_HEIGHT, { duration: 250, easing: Easing.out(Easing.quad) });
-    backdropOpacity.value = withTiming(0, { duration: 150 });
-    setTimeout(onClose, 200);
-  }, [onClose]);
 
   const renderItem = ({ item }: { item: LeaderboardEntry }) => {
     const isTop3 = item.rank <= 3;
@@ -95,11 +75,11 @@ export const LeaderboardSheet = ({ currentUserId, onClose }: Props) => {
         </View>
         <View style={styles.nameCol}>
           <Text style={[styles.name, item.isCurrentUser && styles.nameCurrent]} numberOfLines={1}>
-            {item.display_name ?? 'VIA User'}
+            {item.display_name ?? 'Usuario VIA'}
           </Text>
         </View>
         <View style={styles.repCol}>
-          <Ionicons name="shield-checkmark" size={12} color={colors.primary} />
+          <Ionicons name="shield-checkmark" size={12} color={colors.accentSoft} />
           <Text style={styles.repText}>{item.reputation}</Text>
         </View>
       </View>
@@ -107,70 +87,38 @@ export const LeaderboardSheet = ({ currentUserId, onClose }: Props) => {
   };
 
   return (
-    <Modal transparent animationType="none" onRequestClose={handleClose}>
-      <View style={styles.wrapper} pointerEvents="box-none">
-        <Animated.View style={[styles.backdrop, backdropStyle]}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
-        </Animated.View>
-        <Animated.View style={[styles.sheet, sheetStyle]}>
-          <View style={styles.handle} />
-          <View style={styles.header}>
-            <Text style={styles.title}>Ranking de contribuidores</Text>
-            <Pressable onPress={handleClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={20} color={colors.textSecondary} />
-            </Pressable>
-          </View>
-
-          {loading ? (
-            <View style={styles.loadingWrap}>
-              <ActivityIndicator color={colors.primary} size="large" />
-            </View>
-          ) : entries.length === 0 ? (
-            <View style={styles.loadingWrap}>
-              <Text style={styles.emptyText}>Sin datos aún</Text>
-            </View>
-          ) : (
-            <FlatList
-              data={entries}
-              renderItem={renderItem}
-              keyExtractor={(item) => `${item.rank}`}
-              contentContainerStyle={styles.list}
-              showsVerticalScrollIndicator={false}
-            />
-          )}
-        </Animated.View>
+    <Sheet visible onClose={onClose} fill maxHeightRatio={0.75} accessibilityLabel="Ranking de contribuidores">
+      <View style={styles.header}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>Ranking</Text>
+          <Text style={styles.subtitle}>Los que más aportan a la comunidad</Text>
+        </View>
       </View>
-    </Modal>
+
+      {loading ? (
+        <View style={{ gap: spacing.sm }}>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} height={44} radius={radius.sm} />
+          ))}
+        </View>
+      ) : failed || entries.length === 0 ? (
+        <View style={styles.loadingWrap}>
+          <Text style={styles.emptyText}>{failed ? 'No se pudo cargar el ranking' : 'Sin datos aún'}</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={entries}
+          renderItem={renderItem}
+          keyExtractor={(item) => `${item.rank}`}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
+    </Sheet>
   );
 };
 
 const styles = StyleSheet.create({
-  wrapper: {
-    ...StyleSheet.absoluteFill,
-    justifyContent: 'flex-end',
-    zIndex: 100,
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-  },
-  sheet: {
-    height: SHEET_HEIGHT,
-    backgroundColor: colors.card,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    paddingHorizontal: spacing.lg,
-    ...shadows.lg,
-  },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.textMuted,
-    alignSelf: 'center',
-    marginTop: spacing.sm,
-    marginBottom: spacing.md,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -181,6 +129,7 @@ const styles = StyleSheet.create({
     ...typography.h3,
     color: colors.textPrimary,
   },
+  subtitle: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
   closeBtn: {
     width: 32,
     height: 32,
@@ -204,13 +153,13 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.sm,
+    minHeight: 48,
     paddingHorizontal: spacing.sm,
     borderRadius: radius.sm,
     gap: spacing.sm,
   },
   rowCurrent: {
-    backgroundColor: colors.primaryLight,
+    backgroundColor: 'rgba(74, 122, 248, 0.22)',
   },
   rankCol: {
     width: 32,
@@ -230,7 +179,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   nameCurrent: {
-    color: colors.primary,
+    color: colors.textPrimary,
   },
   repCol: {
     flexDirection: 'row',

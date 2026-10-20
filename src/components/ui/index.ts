@@ -8,3 +8,4 @@ export { Text, TextInput } from './Text';
 export { Skeleton } from './Skeleton';
 export { IconButton } from './IconButton';
 export { EmptyState } from './EmptyState';
+export { Sheet } from './Sheet';
