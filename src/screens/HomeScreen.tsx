@@ -1,95 +1,59 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { Text } from '../components/ui/Text';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Linking, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FuelCard } from '../components/FuelCard';
-import { MapBackground } from '../components/MapView';
 import { OnboardingModal } from '../components/OnboardingModal';
+import { Skeleton } from '../components/ui/Skeleton';
+import { EmptyState } from '../components/ui/EmptyState';
+import { Text } from '../components/ui/Text';
 import { FUEL_DISPLAY } from '../constants/fuelLabels';
 import { useLocationStore } from '../state/locationStore';
 import { useUserStore } from '../state/userStore';
 import { getBestStation } from '../services/pricing';
 import { stationRepository } from '../services/stationRepository';
-import { colors, spacing } from '../theme';
-import type { StationMarker } from '../types';
+import { nextPriceChange } from '../utils/priceCycle';
+import { colors, motion, radius, spacing, typography } from '../theme';
+import type { StationResult } from '../types';
 
-const needsOnboarding = (profile: { display_name: string | null; preferred_fuel: string | null } | null) => {
-  if (!profile) return false;
-  return !profile.preferred_fuel;
-};
+type LoadState = 'loading' | 'ready' | 'empty' | 'error';
+
+const enter = (i: number) => FadeInDown.delay(i * motion.stagger * 2).springify().damping(20).stiffness(180);
 
 export const HomeScreen = () => {
   const insets = useSafeAreaInsets();
-  const { coords, refresh, startWatching, stopWatching, status: locationStatus } = useLocationStore();
-  const { profile } = useUserStore();
-  const [bestStationResult, setBestStationResult] = useState<any>(null);
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const mapOffsetY = insets.top + spacing.xl + 40 + spacing.md + 260;
+  const coords = useLocationStore((s) => s.coords);
+  const locationStatus = useLocationStore((s) => s.status);
+  const locationError = useLocationStore((s) => s.error);
+  const refresh = useLocationStore((s) => s.refresh);
+  const startWatching = useLocationStore((s) => s.startWatching);
+  const stopWatching = useLocationStore((s) => s.stopWatching);
+  const profile = useUserStore((s) => s.profile);
+  const [best, setBest] = useState<StationResult | null>(null);
+  const [loadState, setLoadState] = useState<LoadState>('loading');
   const [refreshing, setRefreshing] = useState(false);
   const preferredFuel = profile?.preferred_fuel;
-  const prevFuelRef = useRef(preferredFuel);
-  const hasAnimated = useRef(false);
+  const showOnboarding = !!profile && !profile.preferred_fuel;
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  const requestId = useRef(0);
 
-  const headerOpacity = useSharedValue(0);
-  const headerTranslateY = useSharedValue(16);
-  const cardOpacity = useSharedValue(0);
-  const cardTranslateY = useSharedValue(24);
-
-  useEffect(() => {
-    if (hasAnimated.current) return;
-    hasAnimated.current = true;
-
-    headerOpacity.value = withTiming(1, { duration: 350, easing: Easing.out(Easing.cubic) });
-    headerTranslateY.value = withTiming(0, { duration: 350, easing: Easing.out(Easing.cubic) });
-
-    setTimeout(() => {
-      cardOpacity.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.cubic) });
-      cardTranslateY.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
-    }, 200);
-  }, []);
-
-  const headerStyle = useAnimatedStyle(() => ({
-    opacity: headerOpacity.value,
-    transform: [{ translateY: headerTranslateY.value }],
-  }));
-
-  const cardStyle = useAnimatedStyle(() => ({
-    opacity: cardOpacity.value,
-    transform: [{ translateY: cardTranslateY.value }],
-  }));
-
-  useEffect(() => {
-    if (profile && needsOnboarding(profile)) {
-      setShowOnboarding(true);
-    }
-  }, [profile]);
-
-  const bestStationMarkers = useMemo(() => {
-    if (!bestStationResult) return [];
-    return [{
-      stationId: bestStationResult.stationId,
-      name: bestStationResult.name,
-      latitude: bestStationResult.latitude,
-      longitude: bestStationResult.longitude,
-      distanceMeters: bestStationResult.distanceMeters,
-      price: bestStationResult.price,
-      fuelType: bestStationResult.fuelType,
-      trustScore: bestStationResult.trustScore,
-      freshness: bestStationResult.freshness,
-      priceDate: bestStationResult.priceDate,
-    } satisfies StationMarker];
-  }, [bestStationResult]);
-
-  const loadBestStation = useCallback(async (isRefresh = false) => {
+  const loadBest = useCallback(async (isRefresh = false) => {
     if (!coords) return;
+    const id = ++requestId.current;
     if (isRefresh) setRefreshing(true);
+    else setLoadState((s) => (s === 'ready' ? s : 'loading'));
     try {
-      const best = await getBestStation(coords, preferredFuel);
-      setBestStationResult(best);
+      const result = await getBestStation(coords, preferredFuel);
+      if (id !== requestId.current) return;
+      setBest(result);
+      setLoadState(result ? 'ready' : 'empty');
     } catch {
+      if (id !== requestId.current) return;
+      setLoadState('error');
     } finally {
-      setRefreshing(false);
+      if (id === requestId.current) setRefreshing(false);
     }
   }, [coords, preferredFuel]);
 
@@ -99,112 +63,128 @@ export const HomeScreen = () => {
   }, [startWatching, stopWatching]);
 
   useEffect(() => {
-    if (coords) {
-      void loadBestStation();
-    }
-  }, [coords, loadBestStation]);
-
-  useEffect(() => {
-    if (preferredFuel !== prevFuelRef.current) {
-      prevFuelRef.current = preferredFuel;
-      if (coords) {
-        void loadBestStation();
-      }
-    }
-  }, [preferredFuel, coords, loadBestStation]);
+    void loadBest();
+  }, [loadBest]);
 
   const handleRefresh = useCallback(() => {
     refresh().catch(() => {});
     stationRepository.invalidateNearbyCache();
-    void loadBestStation(true);
-  }, [refresh, loadBestStation]);
+    void loadBest(true);
+  }, [refresh, loadBest]);
+
+  const permissionDenied = locationStatus === 'error' && !coords && !!locationError?.toLowerCase().includes('denegado');
+  const locationFailed = locationStatus === 'error' && !coords && !permissionDenied;
+  const firstName = profile?.display_name?.split(' ')[0];
+  const cycle = nextPriceChange();
+  const isPriceDay = new Date().getDate() === 12;
 
   return (
     <View style={styles.container}>
-      <MapBackground markers={bestStationMarkers} bestStationId={bestStationResult?.stationId} topContentOffset={mapOffsetY} />
+      <LinearGradient colors={['#011360', '#011360', '#010E4A']} style={StyleSheet.absoluteFill} />
+      <View style={styles.orb} pointerEvents="none" />
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.xl }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + 190 }]}
+        showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.accent} colors={[colors.accent]} progressBackgroundColor={colors.card} />
         }
       >
-        <Animated.View style={[styles.welcomeRow, headerStyle]}>
-          <Text style={styles.greeting}>
-            {profile?.display_name ? `Hola, ${profile.display_name.split(' ')[0]}` : 'Hola'}
-          </Text>
+        <Animated.View entering={enter(0)} style={styles.header}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.overline}>{firstName ? `Hola, ${firstName}` : 'Hola'}</Text>
+            <Text style={styles.title}>Tu mejor opción{'\n'}ahora mismo</Text>
+          </View>
           {preferredFuel && (
-            <View style={styles.fuelBadge}>
-              <Text style={styles.fuelBadgeText}>{FUEL_DISPLAY[preferredFuel]}</Text>
+            <View style={styles.fuelChip} accessible accessibilityLabel={`Combustible: ${FUEL_DISPLAY[preferredFuel]}`}>
+              <Ionicons name="water" size={13} color={colors.accentSoft} />
+              <Text style={styles.fuelChipText}>{FUEL_DISPLAY[preferredFuel]}</Text>
             </View>
           )}
         </Animated.View>
-        {bestStationResult && (
-          <Animated.View style={[styles.featuredCard, cardStyle]}>
-            <FuelCard result={bestStationResult} />
+
+        {permissionDenied ? (
+          <Animated.View entering={enter(1)} style={styles.stateCard}>
+            <EmptyState
+              icon="location-outline"
+              title="Necesitamos tu ubicación"
+              message="Así encontramos la estación con mejor precio cerca de ti."
+              actionLabel="Abrir ajustes"
+              onAction={() => Linking.openSettings().catch(() => {})}
+            />
+          </Animated.View>
+        ) : locationFailed ? (
+          <Animated.View entering={enter(1)} style={styles.stateCard}>
+            <EmptyState icon="locate-outline" tone="danger" title="No pudimos ubicarte" message={locationError ?? undefined} actionLabel="Reintentar" onAction={handleRefresh} />
+          </Animated.View>
+        ) : loadState === 'loading' || !coords ? (
+          <View style={styles.stateCard}>
+            <Skeleton width={110} height={24} radius={12} />
+            <Skeleton width="80%" height={30} style={{ marginTop: spacing.md }} />
+            <Skeleton width="55%" height={56} style={{ marginTop: spacing.md }} />
+            <Skeleton height={44} style={{ marginTop: spacing.lg }} />
+          </View>
+        ) : loadState === 'error' ? (
+          <Animated.View entering={enter(1)} style={styles.stateCard}>
+            <EmptyState icon="cloud-offline-outline" tone="danger" title="No pudimos cargar los precios" message="Revisa tu conexión e inténtalo de nuevo." actionLabel="Reintentar" onAction={handleRefresh} />
+          </Animated.View>
+        ) : loadState === 'empty' || !best ? (
+          <Animated.View entering={enter(1)} style={styles.stateCard}>
+            <EmptyState
+              icon="search-outline"
+              title="Aún no hay precios cerca"
+              message={preferredFuel ? `Nadie ha reportado ${FUEL_DISPLAY[preferredFuel]} en tu zona. ¡Sé el primero!` : 'Nadie ha reportado precios en tu zona. ¡Sé el primero!'}
+            />
+          </Animated.View>
+        ) : (
+          <Animated.View entering={enter(1)}>
+            <FuelCard result={best} userName={firstName} />
           </Animated.View>
         )}
-      </ScrollView>
-      {!coords && (
-        <Text style={styles.hint}>Activa la ubicación para encontrar los mejores precios</Text>
-      )}
 
-      <OnboardingModal
-        visible={showOnboarding}
-        onComplete={() => setShowOnboarding(false)}
-      />
+        <Animated.View entering={enter(2)} style={[styles.cycle, isPriceDay && styles.cycleToday]}>
+          <View style={[styles.cycleIcon, isPriceDay && { backgroundColor: colors.success }]}>
+            <Ionicons name={isPriceDay ? 'flash' : 'calendar-outline'} size={18} color={isPriceDay ? colors.background : colors.accentSoft} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.cycleTitle}>{isPriceDay ? 'Hoy cambian los precios' : 'Próximo ajuste de precios'}</Text>
+            <Text style={styles.cycleSub}>
+              {isPriceDay
+                ? 'Reporta primero y gana recompensas extra.'
+                : `El 12 de ${cycle.date.toLocaleDateString('es-EC', { month: 'long' })} · en ${cycle.days} ${cycle.days === 1 ? 'día' : 'días'}`}
+            </Text>
+          </View>
+        </Animated.View>
+      </ScrollView>
+
+      <OnboardingModal visible={showOnboarding && !onboardingDismissed} onComplete={() => setOnboardingDismissed(true)} />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xxl,
-  },
-  welcomeRow: {
+  container: { flex: 1, backgroundColor: colors.background },
+  orb: { position: 'absolute', top: -120, right: -100, width: 320, height: 320, borderRadius: 160, backgroundColor: 'rgba(3, 74, 248, 0.22)' },
+  content: { paddingHorizontal: spacing.lg, gap: spacing.md },
+  header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: spacing.sm },
+  overline: { ...typography.bodyBold, color: colors.textSecondary },
+  title: { ...typography.h1, color: colors.textPrimary, marginTop: spacing.xs },
+  fuelChip: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    marginTop: spacing.md,
-  },
-  greeting: {
-    color: colors.textPrimary,
-    fontSize: 28,
-    fontWeight: '800',
-  },
-  fuelBadge: {
-    backgroundColor: colors.primaryLight,
-    borderRadius: 999,
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 32,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    marginBottom: 4,
+    borderRadius: radius.full,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: 4,
   },
-  fuelBadgeText: {
-    color: colors.accent,
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  featuredCard: {
-    marginTop: spacing.md,
-  },
-  hint: {
-    color: colors.textSecondary,
-    position: 'absolute',
-    bottom: 120,
-    left: 0,
-    right: 0,
-    textAlign: 'center',
-    fontSize: 14,
-    fontStyle: 'italic',
-  },
+  fuelChipText: { ...typography.captionBold, color: colors.textPrimary, letterSpacing: 0.8 },
+  stateCard: { backgroundColor: colors.card, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border },
+  cycle: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.borderLight },
+  cycleToday: { borderColor: 'rgba(53,208,127,0.45)', backgroundColor: 'rgba(53,208,127,0.1)' },
+  cycleIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  cycleTitle: { ...typography.bodyBold, color: colors.textPrimary },
+  cycleSub: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
 });
