@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { Linking, Share, StyleSheet, Text, View } from 'react-native';
+import { Linking, Share, StyleSheet, View } from 'react-native';
+import { Text } from './ui/Text';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { FUEL_DISPLAY } from '../constants/fuelLabels';

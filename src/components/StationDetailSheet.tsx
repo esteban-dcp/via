@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Dimensions, Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Linking, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './ui/Text';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { FUEL_DISPLAY } from '../constants/fuelLabels';

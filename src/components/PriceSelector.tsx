@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react';
-import { PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { PanResponder, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './ui/Text';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
 import { colors, radius, spacing, typography } from '../theme';
 

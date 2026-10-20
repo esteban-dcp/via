@@ -1,4 +1,5 @@
-import { ActivityIndicator, Pressable, PressableProps, StyleSheet, Text, TextStyle, ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, PressableProps, StyleSheet, TextStyle, ViewStyle } from 'react-native';
+import { Text } from './Text';
 import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';

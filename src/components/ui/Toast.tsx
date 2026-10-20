@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { ColorValue, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ColorValue, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './Text';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
