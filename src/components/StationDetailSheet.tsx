@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View, type HostInstance } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from './ui/Text';
 import { Sheet } from './ui/Sheet';
@@ -31,7 +31,7 @@ export const StationDetailSheet = ({ station, onClose, onToggleFav, isFav }: Pro
   const [prices, setPrices] = useState<FuelPriceInput>({});
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [sharing, setSharing] = useState(false);
-  const shareRef = useRef<View>(null);
+  const shareRef = useRef<HostInstance>(null);
   const lastStation = useRef<StationMarker | null>(null);
   const userName = useUserStore((s) => s.profile?.display_name)?.split(' ')[0];
   if (station) lastStation.current = station;

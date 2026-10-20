@@ -1,4 +1,5 @@
-import { forwardRef } from 'react';
+import type { Ref } from 'react';
+import type { HostInstance } from 'react-native';
 import { Image, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,7 +18,7 @@ type Props = { result: StationResult; userName?: string | null };
 
 const formatDistance = (m: number) => (m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`);
 
-export const ShareCard = forwardRef<View, Props>(({ result, userName }, ref) => {
+export const ShareCard = ({ result, userName, ref }: Props & { ref?: Ref<HostInstance> }) => {
   const freshness = getFreshness(result.priceDate);
   return (
     <View ref={ref} collapsable={false} style={styles.root}>
@@ -62,8 +63,7 @@ export const ShareCard = forwardRef<View, Props>(({ result, userName }, ref) => 
       </View>
     </View>
   );
-});
-ShareCard.displayName = 'ShareCard';
+};
 
 const styles = StyleSheet.create({
   root: { width: SHARE_CARD_SIZE.width, height: SHARE_CARD_SIZE.height, padding: 28, overflow: 'hidden', backgroundColor: colors.background, justifyContent: 'space-between' },

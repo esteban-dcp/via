@@ -1,5 +1,5 @@
 import { memo, useCallback, useRef, useState } from 'react';
-import { Linking, StyleSheet, View } from 'react-native';
+import { Linking, StyleSheet, View, type HostInstance } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FUEL_DISPLAY } from '../constants/fuelLabels';
@@ -26,7 +26,7 @@ const formatDistance = (meters: number) => {
 const reliabilityLabel = (score: number) => (score >= 75 ? 'Muy fiable' : score >= 45 ? 'Fiable' : 'Poco verificado');
 
 export const FuelCard = memo(({ result, userName }: Props) => {
-  const shareRef = useRef<View>(null);
+  const shareRef = useRef<HostInstance>(null);
   const [sharing, setSharing] = useState(false);
   const freshness = getFreshness(result.priceDate);
   const score = Math.max(0, Math.min(100, result.trustScore));

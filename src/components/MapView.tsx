@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { WebView } from 'react-native-webview';
+import { WebView as RNWebView, type WebViewProps } from 'react-native-webview';
+
+// react-native-webview 14 tipa el componente sin `ref`, pero en runtime sigue exponiendo postMessage.
+type WebViewHandle = { postMessage: (data: string) => void };
+const WebView = RNWebView as unknown as React.ForwardRefExoticComponent<WebViewProps & React.RefAttributes<WebViewHandle>>;
 import { colors } from '../theme';
 import { useLocationStore } from '../state/locationStore';
 import type { StationMarker } from '../types';
@@ -153,7 +157,7 @@ export const MapBackground = ({
   onError,
 }: Props) => {
   const { coords } = useLocationStore();
-  const webViewRef = useRef<WebView>(null);
+  const webViewRef = useRef<WebViewHandle>(null);
   const internalRef = useRef<any>(null);
   const mapRef = externalRef ?? internalRef;
   const [webviewReady, setWebviewReady] = useState(false);

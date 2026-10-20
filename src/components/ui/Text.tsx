@@ -1,5 +1,5 @@
-import { forwardRef } from 'react';
-import { StyleSheet, Text as RNText, TextInput as RNTextInput, type TextInputProps, type TextProps } from 'react-native';
+import type { ComponentProps } from 'react';
+import { StyleSheet, Text as RNText, TextInput as RNTextInput, type TextProps } from 'react-native';
 import { fontFamilyForWeight } from '../../theme';
 
 const withFamily = (style: TextProps['style']) => {
@@ -9,12 +9,10 @@ const withFamily = (style: TextProps['style']) => {
 };
 
 /** Text con Plus Jakarta Sans y tope de escala de fuente (alturas fijas no se rompen). */
-export const Text = forwardRef<RNText, TextProps>(({ style, maxFontSizeMultiplier = 1.3, ...rest }, ref) => (
-  <RNText ref={ref} maxFontSizeMultiplier={maxFontSizeMultiplier} style={withFamily(style)} {...rest} />
-));
-Text.displayName = 'Text';
+export const Text = ({ style, maxFontSizeMultiplier = 1.3, ...rest }: ComponentProps<typeof RNText>) => (
+  <RNText maxFontSizeMultiplier={maxFontSizeMultiplier} style={withFamily(style)} {...rest} />
+);
 
-export const TextInput = forwardRef<RNTextInput, TextInputProps>(({ style, maxFontSizeMultiplier = 1.3, ...rest }, ref) => (
-  <RNTextInput ref={ref} maxFontSizeMultiplier={maxFontSizeMultiplier} style={withFamily(style) as TextInputProps['style']} {...rest} />
-));
-TextInput.displayName = 'TextInput';
+export const TextInput = ({ style, maxFontSizeMultiplier = 1.3, ...rest }: ComponentProps<typeof RNTextInput>) => (
+  <RNTextInput maxFontSizeMultiplier={maxFontSizeMultiplier} style={withFamily(style) as ComponentProps<typeof RNTextInput>['style']} {...rest} />
+);
