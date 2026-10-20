@@ -15,7 +15,7 @@ export const AccessCounter = ({ remaining }: Props) => {
         <View style={[styles.iconWrap, { backgroundColor: `${tone}22` }]}>
           <Ionicons name="key" size={16} color={tone} />
         </View>
-        <Text style={styles.label}>Acceso restante</Text>
+        <Text style={styles.label}>Accesos restantes</Text>
       </View>
       <Text style={[styles.value, { color: tone }]}>{remaining}</Text>
     </View>
@@ -27,7 +27,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: radius.lg,
     borderWidth: 1,
-    backgroundColor: colors.glass,
+    backgroundColor: colors.card,
     gap: spacing.sm,
   },
   row: {
@@ -49,7 +49,8 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   value: {
-    fontSize: 28,
+    fontSize: 36,
     fontWeight: '800',
+    letterSpacing: -1,
   },
 });

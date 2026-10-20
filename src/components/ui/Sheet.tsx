@@ -1,5 +1,5 @@
 import { ReactNode, useCallback, useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Keyboard, Modal, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
@@ -27,8 +27,18 @@ export const Sheet = ({ visible, onClose, children, maxHeightRatio = 0.85, fill 
   const { height: screenH } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [mounted, setMounted] = useState(visible);
+  const [kb, setKb] = useState(0);
   const translateY = useSharedValue(screenH);
   const backdrop = useSharedValue(0);
+
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', (e) => setKb(e.endCoordinates.height));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKb(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   const finish = useCallback(() => {
     setMounted(false);
@@ -87,7 +97,7 @@ export const Sheet = ({ visible, onClose, children, maxHeightRatio = 0.85, fill 
         <Animated.View
           accessibilityViewIsModal
           accessibilityLabel={accessibilityLabel}
-          style={[styles.sheet, fill ? { height: maxHeight } : { maxHeight }, { paddingBottom: insets.bottom + spacing.lg }, sheetStyle]}
+          style={[styles.sheet, fill ? { height: maxHeight } : { maxHeight }, { paddingBottom: (kb > 0 ? kb : insets.bottom) + spacing.lg }, sheetStyle]}
         >
           <GestureDetector gesture={pan}>
             <View style={styles.grabArea}>
