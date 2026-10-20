@@ -2,6 +2,7 @@
 -- 'fresh'  = reported on the cycle start day (the 12th)  -> UI "Súper fresco"
 -- 'recent' = reported after the 12th of the current cycle -> UI "Precio actualizado"
 -- 'stale'  = reported before the current cycle started    -> UI "Desactualizado"
+-- fuel_prices.created_at is timestamp WITHOUT time zone (UTC), hence the explicit conversions.
 -- Same signature as before, so CREATE OR REPLACE is enough.
 
 CREATE OR REPLACE FUNCTION public.get_nearby_stations(
@@ -46,8 +47,8 @@ begin
       n.id,
       cpf.fuel_type,
       cpf.price,
-      cpf.created_at,
-      (cpf.created_at at time zone 'America/Guayaquil') as created_ec,
+      (cpf.created_at at time zone 'UTC') as created_tz,
+      ((cpf.created_at at time zone 'UTC') at time zone 'America/Guayaquil') as created_ec,
       fp.created_by
     from nearby n
     join current_fuel_prices cpf on cpf.station_id = n.id
@@ -87,7 +88,7 @@ begin
     n.brand,
     n.city,
     n.province,
-    lp.created_at
+    lp.created_tz
   from nearby n
   left join latest_prices lp on lp.id = n.id
   left join station_trust st on st.id = n.id
