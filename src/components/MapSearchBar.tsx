@@ -31,7 +31,8 @@ export const MapSearchBar = ({ value, onChange, onClear }: Props) => {
         <Ionicons name="search" size={18} color={colors.textSecondary} />
         <TextInput
           style={styles.input}
-          placeholder="Buscar estaciones..."
+          placeholder="Buscar estación"
+          accessibilityLabel="Buscar estación"
           placeholderTextColor={colors.textMuted}
           value={value}
           onChangeText={onChange}
@@ -40,7 +41,7 @@ export const MapSearchBar = ({ value, onChange, onClear }: Props) => {
           returnKeyType="search"
         />
         {value.length > 0 && (
-          <Pressable onPress={onClear} style={styles.clearBtn}>
+          <Pressable onPress={onClear} style={styles.clearBtn} accessibilityRole="button" accessibilityLabel="Borrar búsqueda" hitSlop={8}>
             <Ionicons name="close-circle" size={18} color={colors.textMuted} />
           </Pressable>
         )}
@@ -52,8 +53,8 @@ export const MapSearchBar = ({ value, onChange, onClear }: Props) => {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    left: spacing.lg,
-    right: spacing.lg,
+    left: spacing.md,
+    right: spacing.md,
     zIndex: 50,
     ...shadows.md,
   },
@@ -64,12 +65,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: radius.full,
     paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    borderWidth: 1,
+    minHeight: 52,
+    borderWidth: 1.5,
     borderColor: colors.border,
   },
   inputRowFocused: {
-    borderColor: colors.primary,
+    borderColor: colors.accent,
   },
   input: {
     flex: 1,
@@ -77,6 +78,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   clearBtn: {
-    padding: 2,
+    minWidth: 32,
+    minHeight: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

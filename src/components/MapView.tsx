@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme';
 import { useLocationStore } from '../state/locationStore';
 import type { StationMarker } from '../types';
@@ -15,6 +13,7 @@ type Props = {
   bestStationId?: string;
   mapRef?: React.MutableRefObject<any>;
   topContentOffset?: number;
+  onError?: () => void;
 };
 
 const LEAFLET_HTML = `
@@ -33,25 +32,31 @@ const LEAFLET_HTML = `
       50% { transform: scale(1.8); opacity: 0.2; }
       100% { transform: scale(1); opacity: 0.7; }
     }
+    .leaflet-tile-pane { filter: brightness(1.7) contrast(1.08) saturate(1.1); }
     .user-loc-wrap {
       width: 64px; height: 64px;
+      display: flex; align-items: center; justify-content: center;
       position: relative;
     }
     .user-loc-pulse {
       width: 64px; height: 64px;
       border-radius: 50%;
-      background: rgba(76, 201, 240, 0.2);
-      position: absolute;
-      top: 0; left: 0;
+      background: rgba(74, 122, 248, 0.28);
+      position: absolute; top: 0; left: 0;
       animation: pulse-dot 2s infinite;
     }
     .user-loc-dot {
-      width: 14px; height: 14px;
+      box-sizing: border-box;
+      width: 20px; height: 20px;
       border-radius: 50%;
       background: #4A7AF8;
-      border: 2px solid #011360;
-      position: absolute;
-      top: 25px; left: 25px;
+      border: 3px solid #FFFFFF;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+      position: relative;
+    }
+    .pin-price {
+      font-family: -apple-system, Roboto, sans-serif;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.45);
     }
   </style>
 </head>
@@ -67,7 +72,7 @@ const LEAFLET_HTML = `
     var bestId = null;
 
     function setUserLocation(lat, lng) {
-      if (userMarker) { map.removeLayer(userMarker); }
+      if (userMarker) { userMarker.setLatLng([lat, lng]); return; }
       var html = '<div class="user-loc-wrap"><div class="user-loc-pulse"></div><div class="user-loc-dot"></div></div>';
       var icon = L.divIcon({ className: '', html: html, iconSize: [64, 64], iconAnchor: [32, 32] });
       userMarker = L.marker([lat, lng], { icon: icon, zIndexOffset: 1000 }).addTo(map);
@@ -80,15 +85,15 @@ const LEAFLET_HTML = `
       data.forEach(function(m) {
         var isSelected = m.stationId === selectedId;
         var isBest = m.stationId === bestId;
-        var borderColor = isBest ? '#FFD700' : (isSelected ? '#35D07F' : '#4A7AF8');
+        var borderColor = isBest ? '#FFD700' : (isSelected ? '#35D07F' : '#FFFFFF');
         var bgBadge = isBest ? '#FFD700' : (isSelected ? '#35D07F' : '#021A70');
-        var textColor = isBest ? '#011360' : (isSelected ? '#011360' : '#A6B0D6');
-        var iconColor = isBest ? '#011360' : (isSelected ? '#011360' : '#4A7AF8');
+        var textColor = isBest ? '#011360' : (isSelected ? '#011360' : '#FFFFFF');
+        var iconColor = isBest ? '#011360' : (isSelected ? '#011360' : '#FFFFFF');
 
         var html = '<div style="display:flex;flex-direction:column;align-items:center;position:relative">' +
-          '<div style="background:' + bgBadge + ';border:1px solid ' + borderColor + ';border-radius:12px;padding:3px 8px;color:' + textColor + ';font-size:11px;font-weight:700;white-space:nowrap">' +
+          '<div class="pin-price" style="background:' + bgBadge + ';border:1.5px solid ' + borderColor + ';border-radius:12px;padding:4px 9px;color:' + textColor + ';font-size:12px;font-weight:800;white-space:nowrap">' +
           (m.price ? '$' + m.price.toFixed(2) : '?') +
-          '</div><div style="width:26px;height:26px;margin-top:2px;border-radius:13px;background:rgba(18,26,46,0.78);border:1.5px solid ' + borderColor + ';display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 24 24" width="18" height="18" fill="' + iconColor + '"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg></div></div>';
+          '</div><div style="width:26px;height:26px;margin-top:2px;border-radius:13px;background:' + bgBadge + ';border:1.5px solid ' + borderColor + ';display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 24 24" width="18" height="18" fill="' + iconColor + '"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg></div></div>';
 
         var icon = L.divIcon({ className: '', html: html, iconSize: [120, 56], iconAnchor: [60, 56] });
         var marker = L.marker([m.latitude, m.longitude], { icon: icon }).addTo(map);
@@ -145,6 +150,7 @@ export const MapBackground = ({
   bestStationId,
   mapRef: externalRef,
   topContentOffset = 0,
+  onError,
 }: Props) => {
   const { coords } = useLocationStore();
   const webViewRef = useRef<WebView>(null);
@@ -218,10 +224,6 @@ export const MapBackground = ({
     },
   };
 
-  const recenter = () => {
-    if (coords) flyToCoords(coords.latitude, coords.longitude);
-  };
-
   const handleMessage = useCallback((event: any) => {
     try {
       const msg = JSON.parse(event.nativeEvent.data);
@@ -251,21 +253,10 @@ export const MapBackground = ({
         domStorageEnabled={true}
         onMessage={handleMessage}
         onLoad={handleLoad}
+        onError={onError}
+        onHttpError={onError}
         pointerEvents={interactive ? 'auto' : 'none'}
       />
-      <LinearGradient
-        colors={['rgba(1, 10, 48, 0.4)', 'transparent']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={styles.topFade}
-        pointerEvents="none"
-      />
-
-      {interactive && coords && (
-        <Pressable style={styles.locationBtn} onPress={recenter}>
-          <Ionicons name="locate" size={20} color={colors.primary} />
-        </Pressable>
-      )}
     </View>
   );
 };
@@ -276,30 +267,5 @@ const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFill,
     backgroundColor: colors.background,
-  },
-  topFade: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '35%',
-  },
-  locationBtn: {
-    position: 'absolute',
-    bottom: 100,
-    right: 20,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
   },
 });

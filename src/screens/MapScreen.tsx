@@ -1,179 +1,120 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
-import { Text } from '../components/ui/Text';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
-import { useNavigation } from '@react-navigation/native';
+import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native';
+import Animated, { FadeIn, FadeInDown, FadeInRight } from 'react-native-reanimated';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { MapBackground } from '../components/MapView';
 import { MapSearchBar } from '../components/MapSearchBar';
 import { StationDetailSheet } from '../components/StationDetailSheet';
+import { Button } from '../components/ui/Button';
+import { IconButton } from '../components/ui/IconButton';
+import { Text } from '../components/ui/Text';
+import { toast } from '../state/toastStore';
 import { useFavoritesStore } from '../state/favoritesStore';
 import { useLocationStore } from '../state/locationStore';
 import { useUserStore } from '../state/userStore';
-import { getBestStation, getNearbyStations } from '../services/pricing';
+import { getBestStation } from '../services/pricing';
 import { stationRepository } from '../services/stationRepository';
-import { colors, radius, spacing } from '../theme';
+import { colors, fonts, radius, shadows, spacing } from '../theme';
 import type { StationMarker } from '../types';
+
+const SEARCH_HEIGHT = 52;
 
 export const MapScreen = () => {
   const insets = useSafeAreaInsets();
-  const searchBarTop = insets.top + spacing.md;
-  const { coords, refresh, startWatching, stopWatching, status } = useLocationStore();
-  const { profile, consumeAccess } = useUserStore();
-  const { ids: favIds, load: loadFavs, toggle: toggleFav } = useFavoritesStore();
+  const isFocused = useIsFocused();
+  const top = insets.top + spacing.md;
+  const coords = useLocationStore((s) => s.coords);
+  const status = useLocationStore((s) => s.status);
+  const locationError = useLocationStore((s) => s.error);
+  const startWatching = useLocationStore((s) => s.startWatching);
+  const stopWatching = useLocationStore((s) => s.stopWatching);
+  const profile = useUserStore((s) => s.profile);
+  const consumeAccess = useUserStore((s) => s.consumeAccess);
+  const favIds = useFavoritesStore((s) => s.ids);
+  const loadFavs = useFavoritesStore((s) => s.load);
+  const toggleFav = useFavoritesStore((s) => s.toggle);
   const navigation = useNavigation<any>();
   const [allMarkers, setAllMarkers] = useState<StationMarker[]>([]);
   const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [mapOffline, setMapOffline] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedStation, setSelectedStation] = useState<StationMarker | null>(null);
-  const [locked, setLocked] = useState(false);
   const [bestStationId, setBestStationId] = useState<string | undefined>(undefined);
   const mapRef = useRef<any>(null);
-  const loaded = useRef(false);
-  const hasAnimated = useRef(false);
-
-  const searchOpacity = useSharedValue(0);
-  const searchTranslateY = useSharedValue(-20);
-  const refreshOpacity = useSharedValue(0);
-  const refreshScale = useSharedValue(0.5);
-  const badgeOpacity = useSharedValue(0);
-  const badgeScale = useSharedValue(0.5);
-
-  useEffect(() => {
-    if (hasAnimated.current) return;
-    hasAnimated.current = true;
-
-    searchOpacity.value = withTiming(1, { duration: 350, easing: Easing.out(Easing.cubic) });
-    searchTranslateY.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
-
-    setTimeout(() => {
-      refreshOpacity.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.cubic) });
-      refreshScale.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.quad) });
-    }, 200);
-
-    setTimeout(() => {
-      badgeOpacity.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.cubic) });
-      badgeScale.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.quad) });
-    }, 350);
-  }, []);
-
-  const searchStyle = useAnimatedStyle(() => ({
-    opacity: searchOpacity.value,
-    transform: [{ translateY: searchTranslateY.value }],
-  }));
-
-  const refreshStyle = useAnimatedStyle(() => ({
-    opacity: refreshOpacity.value,
-    transform: [{ scale: refreshScale.value }],
-  }));
-
-  const badgeStyle = useAnimatedStyle(() => ({
-    opacity: badgeOpacity.value,
-    transform: [{ scale: badgeScale.value }],
-  }));
+  const requestId = useRef(0);
 
   const accessRemaining = profile?.access_remaining ?? 0;
+  const locked = accessRemaining <= 0;
   const preferredFuel = profile?.preferred_fuel;
+  const permissionDenied = status === 'error' && !coords && !!locationError?.toLowerCase().includes('denegado');
 
   useEffect(() => {
+    if (!isFocused) return;
     startWatching().catch(() => {});
     return () => stopWatching();
-  }, [startWatching, stopWatching]);
+  }, [isFocused, startWatching, stopWatching]);
 
-  // Load favorites when profile is ready
   useEffect(() => {
     if (profile) loadFavs(profile.id);
   }, [profile, loadFavs]);
 
-  // Lock state: derived from accessRemaining, no side effects
-  useEffect(() => {
-    setLocked(accessRemaining <= 0);
-  }, [accessRemaining]);
-
-  const prevFuelRef = useRef(preferredFuel);
-
-  // Data loading: runs once when coords become available
-  useEffect(() => {
-    if (!coords || loaded.current) return;
-    loaded.current = true;
-
-    setLoading(true);
-
-    stationRepository.getNearbyStations(coords)
-      .then((markers) => {
-        setAllMarkers(markers);
-        return getBestStation(coords, preferredFuel);
-      })
-      .then((best) => {
-        if (best) setBestStationId(best.stationId);
-      })
-      .catch(() => {
-        setAllMarkers([]);
-      })
-      .finally(() => setLoading(false));
-  // preferredFuel intentionally omitted — handled by the fuel-change effect below
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coords]);
-
-  // Re-fetch best station when preferred fuel changes after initial load
-  useEffect(() => {
-    if (!loaded.current || !coords || preferredFuel === prevFuelRef.current) return;
-    prevFuelRef.current = preferredFuel;
-    getBestStation(coords, preferredFuel)
-      .then((best) => {
-        if (best) setBestStationId(best.stationId);
-      })
-      .catch(() => {});
-  }, [preferredFuel, coords]);
-
-  const handleRefreshMarkers = useCallback(() => {
+  const load = useCallback(async () => {
     if (!coords) return;
-    loaded.current = true;
-    stationRepository.invalidateNearbyCache();
+    const id = ++requestId.current;
     setLoading(true);
-    stationRepository.getNearbyStations(coords)
-      .then((markers) => {
-        setAllMarkers(markers);
-        return getBestStation(coords, preferredFuel);
-      })
-      .then((best) => {
-        if (best) setBestStationId(best.stationId);
-      })
-      .catch(() => setAllMarkers([]))
-      .finally(() => setLoading(false));
+    setFailed(false);
+    try {
+      const markers = await stationRepository.getNearbyStations(coords);
+      if (id !== requestId.current) return;
+      setAllMarkers(markers);
+      const best = await getBestStation(coords, preferredFuel);
+      if (id === requestId.current) setBestStationId(best?.stationId);
+    } catch {
+      if (id !== requestId.current) return;
+      setAllMarkers([]);
+      setFailed(true);
+    } finally {
+      if (id === requestId.current) setLoading(false);
+    }
+  }, [coords, preferredFuel]);
+
+  // Carga inicial al tener coords y al cambiar el combustible preferido.
+  const hasCoords = !!coords;
+  useEffect(() => {
+    if (hasCoords) void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasCoords, preferredFuel]);
+
+  const handleRefresh = useCallback(() => {
+    stationRepository.invalidateNearbyCache();
+    setMapOffline(false);
+    void load();
     if (!locked) consumeAccess().catch(() => {});
-  }, [coords, locked, consumeAccess, preferredFuel]);
+  }, [load, locked, consumeAccess]);
 
   const filteredMarkers = useMemo(() => {
     let result = allMarkers;
-
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter((m) => m.name.toLowerCase().includes(q));
     }
-
     if (preferredFuel) {
       const preferred = allMarkers.filter((m) => m.fuelType === preferredFuel);
-      if (preferred.length > 0) {
-        result = preferred;
-      }
+      if (preferred.length > 0) result = result.filter((m) => m.fuelType === preferredFuel);
     }
-
     return result;
   }, [allMarkers, search, preferredFuel]);
 
-  const handleMarkerPress = useCallback((station: StationMarker) => {
-    setSelectedStation(station);
-  }, []);
-
-  const handleCloseSheet = useCallback(() => {
-    setSelectedStation(null);
-  }, []);
-
-  const handleContribute = useCallback(() => {
-    navigation.navigate('Contribute');
-  }, [navigation]);
+  const handleMarkerPress = useCallback((station: StationMarker) => setSelectedStation(station), []);
+  const handleCloseSheet = useCallback(() => setSelectedStation(null), []);
+  const handleContribute = useCallback(() => navigation.navigate('Contribute'), [navigation]);
+  const handleRecenter = useCallback(() => {
+    if (!coords) return toast.info('Aún no tenemos tu ubicación');
+    mapRef.current?.recenter?.();
+  }, [coords]);
 
   return (
     <View style={styles.container}>
@@ -184,65 +125,100 @@ export const MapScreen = () => {
         onMarkerPress={handleMarkerPress}
         selectedStationId={selectedStation?.stationId}
         bestStationId={bestStationId}
+        onError={() => setMapOffline(true)}
       />
-      {!locked && (
-        <Animated.View style={searchStyle}>
-          <MapSearchBar
-            value={search}
-            onChange={setSearch}
-            onClear={() => setSearch('')}
+
+      {locked ? (
+        <Animated.View entering={FadeInDown.springify().damping(20)} style={[styles.lockedBanner, { top }]}>
+          <Ionicons name="lock-closed" size={16} color={colors.warning} />
+          <Text style={styles.lockedText}>Sin accesos. Contribuye para seguir buscando.</Text>
+          <Button title="Contribuir" size="sm" variant="primary" onPress={handleContribute} />
+        </Animated.View>
+      ) : (
+        <>
+          <Animated.View entering={FadeInDown.springify().damping(20)} style={{ zIndex: 50 }}>
+            <MapSearchBar value={search} onChange={setSearch} onClear={() => setSearch('')} />
+          </Animated.View>
+
+          <Animated.View entering={FadeIn.delay(150)} style={[styles.accessPill, { top: top + SEARCH_HEIGHT + spacing.sm }]}>
+            <Ionicons name="flash" size={13} color={colors.warning} />
+            <Text style={styles.accessText}>
+              {accessRemaining} {accessRemaining === 1 ? 'acceso' : 'accesos'}
+            </Text>
+          </Animated.View>
+
+          <Animated.View entering={FadeInRight.delay(120).springify().damping(20)} style={[styles.controls, { top: top + SEARCH_HEIGHT + spacing.sm }]}>
+            <IconButton icon="locate" label="Centrar en mi ubicación" onPress={handleRecenter} />
+            <IconButton icon="refresh" label="Actualizar estaciones" onPress={handleRefresh} />
+          </Animated.View>
+        </>
+      )}
+
+      {(loading || status === 'loading') && !permissionDenied && (
+        <View style={styles.loader} pointerEvents="none">
+          <View style={styles.loaderBox}>
+            <ActivityIndicator color={colors.accent} />
+            <Text style={styles.loaderText}>Buscando estaciones</Text>
+          </View>
+        </View>
+      )}
+
+      {(permissionDenied || failed || mapOffline || (!loading && coords && allMarkers.length === 0 && !failed)) && (
+        <Animated.View entering={FadeInDown.springify().damping(20)} style={[styles.notice, { bottom: insets.bottom + 12 + 64 + 76 }]}>
+          <Ionicons
+            name={permissionDenied ? 'location-outline' : failed || mapOffline ? 'cloud-offline-outline' : 'search-outline'}
+            size={20}
+            color={failed || mapOffline ? colors.danger : colors.accentSoft}
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.noticeTitle}>
+              {permissionDenied ? 'Activa tu ubicación' : mapOffline ? 'Mapa sin conexión' : failed ? 'No pudimos cargar estaciones' : 'Sin estaciones cerca'}
+            </Text>
+            <Text style={styles.noticeSub}>
+              {permissionDenied ? 'La necesitamos para mostrar estaciones cercanas.' : failed || mapOffline ? 'Revisa tu conexión.' : 'Aún nadie ha reportado en tu zona.'}
+            </Text>
+          </View>
+          <Button
+            title={permissionDenied ? 'Ajustes' : 'Reintentar'}
+            size="sm"
+            variant="secondary"
+            onPress={permissionDenied ? () => Linking.openSettings().catch(() => {}) : handleRefresh}
           />
         </Animated.View>
       )}
-      {(loading || status === 'loading') && (
-        <View style={styles.loader}>
-          <ActivityIndicator color={colors.primary} size="large" />
-        </View>
-      )}
-      {locked && (
-        <View style={[styles.lockedBanner, { top: searchBarTop }]}>
-          <Ionicons name="lock-closed" size={14} color={colors.warning} />
-          <Text style={styles.lockedBannerText}>
-            Acceso bloqueado — contribuye para buscar y actualizar
-          </Text>
-            <Pressable onPress={handleContribute} style={styles.lockedBannerBtn}>
-              <Text style={styles.lockedBannerBtnText}>Contribuir</Text>
-            </Pressable>
-        </View>
-      )}
+
       <StationDetailSheet
         station={selectedStation}
         onClose={handleCloseSheet}
         onToggleFav={profile ? (id) => toggleFav(profile.id, id) : undefined}
         isFav={selectedStation ? favIds.includes(selectedStation.stationId) : false}
       />
-      {!locked && (
-        <Animated.View style={[styles.refreshBtn, refreshStyle, { top: searchBarTop + 76 }]}>
-          <Pressable onPress={handleRefreshMarkers}>
-            <Ionicons name="refresh" size={18} color={colors.primary} />
-          </Pressable>
-        </Animated.View>
-      )}
-      <Animated.View style={[styles.accessBadge, badgeStyle, { top: searchBarTop + 96 }]}>
-        <Ionicons name="flash" size={12} color={colors.primary} />
-        <Text style={styles.accessText}>{accessRemaining}</Text>
-      </Animated.View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  loader: {
+  container: { flex: 1, backgroundColor: colors.background },
+  controls: { position: 'absolute', right: spacing.md, gap: spacing.sm, zIndex: 40 },
+  accessPill: {
     position: 'absolute',
-    top: '50%',
-    left: '50%',
-    marginLeft: -20,
-    marginTop: -20,
+    left: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 36,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.full,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    zIndex: 40,
+    ...shadows.sm,
   },
+  accessText: { fontFamily: fonts.bold, fontSize: 12, color: colors.textPrimary },
+  loader: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
+  loaderBox: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.card, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, ...shadows.md },
+  loaderText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.textPrimary },
   lockedBanner: {
     position: 'absolute',
     left: spacing.md,
@@ -250,59 +226,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.warningLight,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    zIndex: 50,
-  },
-  lockedBannerText: {
-    color: colors.warning,
-    fontSize: 12,
-    fontWeight: '600',
-    flex: 1,
-  },
-  lockedBannerBtn: {
-    backgroundColor: colors.warning,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  lockedBannerBtnText: {
-    color: '#011360',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  refreshBtn: {
-    position: 'absolute',
-    top: 60,
-    right: spacing.md,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
     backgroundColor: colors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: radius.lg,
+    padding: spacing.sm,
+    paddingLeft: spacing.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(255,181,71,0.5)',
+    zIndex: 50,
+    ...shadows.md,
   },
-  accessBadge: {
+  lockedText: { flex: 1, fontFamily: fonts.semibold, fontSize: 12, color: colors.textPrimary },
+  notice: {
     position: 'absolute',
-    top: 104,
+    left: spacing.md,
     right: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.glass,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+    gap: spacing.md,
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
+    zIndex: 45,
+    ...shadows.md,
   },
-  accessText: {
-    color: colors.accent,
-    fontSize: 12,
-    fontWeight: '700',
-  },
+  noticeTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary },
+  noticeSub: { fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 },
 });
