@@ -40,7 +40,7 @@
         {
           "android": {
             "targetSdkVersion": 36,
-            "compileSdkVersion": 36
+            "compileSdkVersion": 37
           }
         }
       ]
