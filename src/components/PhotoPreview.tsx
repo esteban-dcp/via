@@ -18,7 +18,7 @@ export const PhotoPreview = ({ uri, onRetake }: Props) => (
       </View>
     </View>
     {onRetake && (
-      <Pressable style={styles.retake} onPress={onRetake}>
+      <Pressable style={styles.retake} onPress={onRetake} accessibilityRole="button" accessibilityLabel="Repetir foto">
         <Ionicons name="refresh" size={16} color={colors.textSecondary} />
         <Text style={styles.retakeText}>Repetir</Text>
       </Pressable>
@@ -57,14 +57,13 @@ const styles = StyleSheet.create({
   badgeText: {
     ...typography.caption,
     color: colors.success,
-    fontWeight: '600',
   },
   retake: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
-    paddingVertical: 10,
+    minHeight: 48,
     backgroundColor: colors.surface1,
   },
   retakeText: {

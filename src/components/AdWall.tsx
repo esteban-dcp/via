@@ -35,12 +35,12 @@ export const AdWall = ({ visible, onAdComplete, onDismiss }: Props) => {
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
       <View style={styles.overlay}>
         <View style={styles.card}>
-          <Pressable onPress={onDismiss} style={styles.closeBtn}>
+          <Pressable onPress={onDismiss} style={styles.closeBtn} accessibilityRole="button" accessibilityLabel="Cerrar">
             <Ionicons name="close" size={20} color={colors.textSecondary} />
           </Pressable>
 
           <View style={styles.iconWrap}>
-            <Ionicons name="play-circle" size={40} color={colors.primary} />
+            <Ionicons name="play-circle" size={40} color={colors.accentSoft} />
           </View>
 
           <Text style={styles.title}>Ver anuncio para descubrir</Text>
@@ -49,7 +49,7 @@ export const AdWall = ({ visible, onAdComplete, onDismiss }: Props) => {
           </Text>
 
           <Button
-            title={watching ? 'Cargando...' : 'Ver video (1 acceso)'}
+            title={watching ? 'Cargando…' : 'Ver video (1 acceso)'}
             icon="play"
             variant="primary"
             loading={watching}
@@ -58,7 +58,7 @@ export const AdWall = ({ visible, onAdComplete, onDismiss }: Props) => {
             style={{ marginTop: spacing.lg, width: '100%' }}
           />
 
-          <Pressable onPress={onDismiss} style={styles.skipBtn} disabled={watching}>
+          <Pressable onPress={onDismiss} style={styles.skipBtn} disabled={watching} accessibilityRole="button">
             <Text style={styles.skipText}>Ahora no</Text>
           </Pressable>
         </View>
@@ -86,11 +86,11 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     position: 'absolute',
-    top: spacing.md,
-    right: spacing.md,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    top: spacing.xs,
+    right: spacing.xs,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -118,11 +118,12 @@ const styles = StyleSheet.create({
   },
   skipBtn: {
     marginTop: spacing.lg,
-    paddingVertical: spacing.sm,
+    minHeight: 48,
+    justifyContent: 'center',
   },
   skipText: {
-    color: colors.textMuted,
-    fontSize: 13,
+    color: colors.textSecondary,
+    fontSize: 14,
     fontWeight: '600',
   },
 });

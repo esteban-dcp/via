@@ -10,7 +10,17 @@ import { supabase } from '../services/supabase';
 import { useScalePress } from '../hooks/useScalePress';
 import { TextField } from '../components/ui/TextField';
 import { Button } from '../components/ui/Button';
-import { colors, radius, spacing } from '../theme';
+
+const friendlyAuthError = (message: string): string => {
+  const m = message.toLowerCase();
+  if (m.includes('invalid login credentials')) return 'Correo o contraseña incorrectos.';
+  if (m.includes('already registered') || m.includes('already been registered')) return 'Este correo ya tiene una cuenta. Inicia sesión.';
+  if (m.includes('email not confirmed')) return 'Correo no confirmado. Revisa tu bandeja de entrada.';
+  if (m.includes('rate limit') || m.includes('too many')) return 'Demasiados intentos. Espera un momento.';
+  if (m.includes('network') || m.includes('fetch')) return 'Sin conexión. Revisa tu internet.';
+  return 'No se pudo completar la acción. Inténtalo de nuevo.';
+};
+import { colors, fonts, radius, spacing, typography } from '../theme';
 
 export const AuthScreen = () => {
   const insets = useSafeAreaInsets();
@@ -129,7 +139,7 @@ export const AuthScreen = () => {
           },
         });
         if (error) {
-          setAuthError(error.message);
+          setAuthError(friendlyAuthError(error.message));
         } else {
           setSignupSuccess(true);
           setEmail('');
@@ -141,15 +151,11 @@ export const AuthScreen = () => {
           password,
         });
         if (error) {
-          if (error.message.includes('Email not confirmed')) {
-            setAuthError('Correo no confirmado. Revisa tu bandeja de entrada.');
-          } else {
-            setAuthError(error.message);
-          }
+          setAuthError(friendlyAuthError(error.message));
         }
       }
     } catch (err) {
-      setAuthError((err as Error).message);
+      setAuthError(friendlyAuthError((err as Error).message));
     } finally {
       setLoading(false);
     }
@@ -160,7 +166,7 @@ export const AuthScreen = () => {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#060C28', '#0A1450', '#021A70', '#011360']}
+        colors={[colors.background, '#010E4A', colors.background]}
         style={StyleSheet.absoluteFill}
       />
       <LinearGradient
@@ -181,16 +187,17 @@ export const AuthScreen = () => {
             <Text style={styles.appName}>VIA</Text>
           </Animated.View>
           <Animated.View style={taglineStyle}>
-            <Text style={styles.tagline}>Precios de combustible en vivo impulsados por tu ciudad.</Text>
+            <Text style={styles.headline}>El mejor precio{'\n'}de combustible,{'\n'}cerca de ti.</Text>
+            <Text style={styles.tagline}>Precios reportados por conductores de tu ciudad.</Text>
           </Animated.View>
 
           <Animated.View style={[styles.authCard, cardStyle]}>
             <View style={styles.modeTabs} onLayout={(e) => setTabsWidth(e.nativeEvent.layout.width)}>
               <Animated.View style={[styles.tabIndicator, indicatorStyle]} />
-              <Pressable style={styles.modeTab} onPress={() => switchMode('login')}>
+              <Pressable style={styles.modeTab} onPress={() => switchMode('login')} accessibilityRole="tab" accessibilityState={{ selected: mode === 'login' }}>
                 <Text style={[styles.modeTabText, mode === 'login' && styles.modeTabTextActive]}>Iniciar sesión</Text>
               </Pressable>
-              <Pressable style={styles.modeTab} onPress={() => switchMode('signup')}>
+              <Pressable style={styles.modeTab} onPress={() => switchMode('signup')} accessibilityRole="tab" accessibilityState={{ selected: mode === 'signup' }}>
                 <Text style={[styles.modeTabText, mode === 'signup' && styles.modeTabTextActive]}>
                   Crear cuenta
                 </Text>
@@ -226,7 +233,7 @@ export const AuthScreen = () => {
                   secureTextEntry={!showPassword}
                   editable={!loading}
                   rightAction={
-                    <Pressable onPress={() => setShowPassword((p) => !p)} hitSlop={8}>
+                    <Pressable onPress={() => setShowPassword((p) => !p)} hitSlop={12} accessibilityRole="button" accessibilityLabel={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}>
                       <Ionicons
                         name={showPassword ? 'eye-off' : 'eye'}
                         size={18}
@@ -312,27 +319,27 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1.2,
   },
+  headline: {
+    ...typography.display,
+    color: colors.textPrimary,
+    marginTop: spacing.xl,
+  },
   tagline: {
+    ...typography.body,
     color: colors.textSecondary,
-    marginTop: spacing.sm,
-    fontSize: 15,
+    marginTop: spacing.md,
   },
   authCard: {
     marginTop: spacing.xl,
-    backgroundColor: colors.glass,
+    backgroundColor: colors.card,
     borderRadius: radius.xl,
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 12,
   },
   modeTabs: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(15, 22, 40, 0.7)',
+    backgroundColor: colors.surface3,
     borderRadius: 999,
     padding: 4,
     marginBottom: spacing.md,
@@ -347,13 +354,14 @@ const styles = StyleSheet.create({
   },
   modeTab: {
     flex: 1,
-    paddingVertical: 10,
+    minHeight: 44,
+    justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1,
   },
   modeTabText: {
     color: colors.textSecondary,
-    fontWeight: '600',
+    fontFamily: fonts.semibold,
   },
   modeTabTextActive: {
     color: colors.textPrimary,
