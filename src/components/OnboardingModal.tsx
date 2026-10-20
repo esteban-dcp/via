@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutLeft, useAnimatedStyle, withSpring } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -71,8 +70,7 @@ export const OnboardingModal = ({ visible, onComplete }: Props) => {
 
   return (
     <Modal visible={visible} animationType="fade" statusBarTranslucent onRequestClose={() => {}}>
-      <LinearGradient colors={[colors.background, '#010E4A']} style={StyleSheet.absoluteFill} />
-      <View style={styles.orb} pointerEvents="none" />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]} />
       <KeyboardAvoidingView
         style={[styles.root, { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.lg }]}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -168,7 +166,6 @@ export const OnboardingModal = ({ visible, onComplete }: Props) => {
 
 const styles = StyleSheet.create({
   root: { flex: 1, paddingHorizontal: spacing.lg, justifyContent: 'space-between' },
-  orb: { position: 'absolute', top: -140, right: -120, width: 360, height: 360, borderRadius: 180, backgroundColor: 'rgba(3,74,248,0.25)' },
   top: { gap: spacing.lg },
   track: { height: 4, borderRadius: 2, backgroundColor: colors.surface3, overflow: 'hidden' },
   fill: { height: 4, borderRadius: 2, backgroundColor: colors.accent },

@@ -10,12 +10,12 @@ type Props = {
 export const AccessCounter = ({ remaining }: Props) => {
   const tone = remaining === 0 ? colors.danger : remaining <= 1 ? colors.warning : colors.success;
   return (
-    <View style={[styles.container, { borderColor: tone }]}>
+    <View style={styles.container}>
       <View style={styles.row}>
         <View style={[styles.iconWrap, { backgroundColor: `${tone}22` }]}>
           <Ionicons name="key" size={16} color={tone} />
         </View>
-        <Text style={styles.label}>Accesos restantes</Text>
+        <Text style={styles.label} numberOfLines={1}>Accesos</Text>
       </View>
       <Text style={[styles.value, { color: tone }]}>{remaining}</Text>
     </View>
@@ -27,10 +27,12 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: radius.lg,
     borderWidth: 1,
+    borderColor: colors.border,
     backgroundColor: colors.card,
     gap: spacing.sm,
   },
   row: {
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
@@ -43,14 +45,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   label: {
+    flexShrink: 1,
     color: colors.textSecondary,
     fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    fontWeight: '700',
   },
   value: {
-    fontSize: 36,
-    fontWeight: '800',
-    letterSpacing: -1,
+    fontSize: 30,
+    fontWeight: '700',
+    letterSpacing: -0.5,
   },
 });

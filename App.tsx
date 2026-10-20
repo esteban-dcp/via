@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { ActivityIndicator, AppState, Pressable, View } from 'react-native';
 import { Text } from './src/components/ui/Text';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -11,6 +11,7 @@ import { MapScreen } from './src/screens/MapScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { useUserStore } from './src/state/userStore';
+import { useLocationStore } from './src/state/locationStore';
 import { colors } from './src/theme';
 import { TabBar } from './src/components/TabBar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -50,6 +51,29 @@ export default function App() {
       unsubscribe.then((fn) => fn()).catch(() => {});
     };
   }, [bootstrap]);
+
+  // Ubicación: un único watcher global mientras haya sesión; al volver a primer plano se refresca
+  // (el usuario pudo activar el GPS o conceder el permiso desde Ajustes).
+  const hasSession = !!session;
+  useEffect(() => {
+    void useLocationStore.getState().hydrate();
+    if (!hasSession) return;
+    const { startWatching, stopWatching, refresh } = useLocationStore.getState();
+    void startWatching();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      const { status, errorCode } = useLocationStore.getState();
+      if (status === 'error' || errorCode) {
+        void startWatching();
+      } else {
+        void refresh();
+      }
+    });
+    return () => {
+      sub.remove();
+      stopWatching();
+    };
+  }, [hasSession]);
 
   // Register push notifications when session + profile are ready
   useEffect(() => {

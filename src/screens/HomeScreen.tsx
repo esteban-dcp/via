@@ -2,13 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Linking, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FuelCard } from '../components/FuelCard';
 import { OnboardingModal } from '../components/OnboardingModal';
 import { Skeleton } from '../components/ui/Skeleton';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Text } from '../components/ui/Text';
+import { LocationBanner } from '../components/ui/LocationBanner';
 import { FUEL_DISPLAY } from '../constants/fuelLabels';
 import { useLocationStore } from '../state/locationStore';
 import { useUserStore } from '../state/userStore';
@@ -28,8 +28,7 @@ export const HomeScreen = () => {
   const locationStatus = useLocationStore((s) => s.status);
   const locationError = useLocationStore((s) => s.error);
   const refresh = useLocationStore((s) => s.refresh);
-  const startWatching = useLocationStore((s) => s.startWatching);
-  const stopWatching = useLocationStore((s) => s.stopWatching);
+  const errorCode = useLocationStore((s) => s.errorCode);
   const profile = useUserStore((s) => s.profile);
   const [best, setBest] = useState<StationResult | null>(null);
   const [loadState, setLoadState] = useState<LoadState>('loading');
@@ -58,11 +57,6 @@ export const HomeScreen = () => {
   }, [coords, preferredFuel]);
 
   useEffect(() => {
-    startWatching().catch(() => {});
-    return () => stopWatching();
-  }, [startWatching, stopWatching]);
-
-  useEffect(() => {
     void loadBest();
   }, [loadBest]);
 
@@ -72,7 +66,7 @@ export const HomeScreen = () => {
     void loadBest(true);
   }, [refresh, loadBest]);
 
-  const permissionDenied = locationStatus === 'error' && !coords && !!locationError?.toLowerCase().includes('denegado');
+  const permissionDenied = errorCode === 'denied' && !coords;
   const locationFailed = locationStatus === 'error' && !coords && !permissionDenied;
   const firstName = profile?.display_name?.split(' ')[0];
   const cycle = nextPriceChange();
@@ -80,8 +74,6 @@ export const HomeScreen = () => {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#011360', '#011360', '#010E4A']} style={StyleSheet.absoluteFill} />
-      <View style={styles.orb} pointerEvents="none" />
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + 190 }]}
         showsVerticalScrollIndicator={false}
@@ -101,6 +93,8 @@ export const HomeScreen = () => {
             </View>
           )}
         </Animated.View>
+
+        {!!coords && <LocationBanner />}
 
         {permissionDenied ? (
           <Animated.View entering={enter(1)} style={styles.stateCard}>
@@ -163,7 +157,6 @@ export const HomeScreen = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  orb: { position: 'absolute', top: -120, right: -100, width: 320, height: 320, borderRadius: 160, backgroundColor: 'rgba(3, 74, 248, 0.22)' },
   content: { paddingHorizontal: spacing.lg, gap: spacing.md },
   header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: spacing.sm },
   overline: { ...typography.bodyBold, color: colors.textSecondary },

@@ -4,7 +4,6 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Text, TextInput } from '../components/ui/Text';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -121,18 +120,17 @@ export const ProfileScreen = () => {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['rgba(3,74,248,0.28)', 'transparent']} style={styles.topGlow} pointerEvents="none" />
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + 120 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <Animated.View entering={enter(0)} style={styles.header}>
-          <LinearGradient colors={[colors.primary, colors.accent]} style={styles.avatar}>
+          <View style={styles.avatar}>
             <Text style={styles.avatarText}>{getInitials(profile.display_name)}</Text>
-          </LinearGradient>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.displayName} numberOfLines={1}>{profile.display_name ?? 'Sin nombre'}</Text>
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.displayName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{profile.display_name ?? 'Sin nombre'}</Text>
             <Pressable
               onPress={handleOpenNameEdit}
               style={styles.editRow}
@@ -200,7 +198,7 @@ export const ProfileScreen = () => {
                 const st = STATUS[r.status] ?? { variant: 'neutral' as const, label: r.status };
                 return (
                   <View key={r.id} style={[styles.reportItem, i > 0 && styles.reportDivider]}>
-                    <View style={{ flex: 1 }}>
+                    <View style={{ flex: 1, minWidth: 0 }}>
                       <Text style={styles.reportStation} numberOfLines={1}>{r.station_name ?? 'Estación sin nombre'}</Text>
                       <Text style={styles.reportDate}>{formatDate(r.created_at)}</Text>
                     </View>
@@ -260,7 +258,7 @@ export const ProfileScreen = () => {
         <Text style={styles.bodyText}>Precios de combustible de Ecuador, reportados por conductores como tú.</Text>
         <View style={styles.attribution}>
           <Text style={styles.attrTitle}>Mapa</Text>
-          <Text style={styles.attrText}>© OpenStreetMap contributors · © CARTO · Leaflet</Text>
+          <Text style={styles.attrText}>© OpenFreeMap · © OpenMapTiles · Datos © OpenStreetMap contributors · MapLibre</Text>
         </View>
         <Button title="Ver términos de uso" variant="secondary" icon="document-text-outline" onPress={() => openUrl(`${webBase}/terms`)} style={{ marginTop: spacing.md }} />
       </Sheet>
@@ -287,9 +285,9 @@ const ListRow = ({ icon, iconColor = colors.accentSoft, title, subtitle, onPress
     <View style={styles.listIcon}>
       <Ionicons name={icon} size={18} color={iconColor} />
     </View>
-    <View style={{ flex: 1 }}>
-      <Text style={styles.listTitle}>{title}</Text>
-      {!!subtitle && <Text style={styles.listSub}>{subtitle}</Text>}
+    <View style={{ flex: 1, minWidth: 0 }}>
+      <Text style={styles.listTitle} numberOfLines={1}>{title}</Text>
+      {!!subtitle && <Text style={styles.listSub} numberOfLines={2}>{subtitle}</Text>}
     </View>
     <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
   </Pressable>
@@ -298,28 +296,27 @@ const ListRow = ({ icon, iconColor = colors.accentSoft, title, subtitle, onPress
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   centered: { alignItems: 'center', justifyContent: 'center' },
-  topGlow: { position: 'absolute', top: 0, left: 0, right: 0, height: 260 },
   content: { paddingHorizontal: spacing.lg, gap: spacing.md },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.sm },
-  avatar: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.25)' },
-  avatarText: { fontFamily: fonts.extrabold, fontSize: 26, color: colors.onPrimary },
-  displayName: { ...typography.h2, color: colors.textPrimary },
+  avatar: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.primaryBorder },
+  avatarText: { fontFamily: fonts.bold, fontSize: 22, color: colors.onPrimary },
+  displayName: { ...typography.h3, color: colors.textPrimary },
   editRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, minHeight: 28 },
   editText: { ...typography.captionBold, color: colors.accentSoft },
   statsRow: { flexDirection: 'row', gap: spacing.md },
   statCard: { flex: 1, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, gap: spacing.sm },
-  statTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 28 },
-  statLabel: { ...typography.label, color: colors.textSecondary },
-  statValue: { fontFamily: fonts.extrabold, fontSize: 36, letterSpacing: -1, color: colors.textPrimary },
+  statTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 28, minWidth: 0 },
+  statLabel: { ...typography.captionBold, color: colors.textSecondary, flexShrink: 1 },
+  statValue: { fontFamily: fonts.bold, fontSize: 30, letterSpacing: -0.5, color: colors.textPrimary },
   section: { backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: colors.border },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs },
-  sectionTitle: { ...typography.h4, color: colors.textPrimary },
+  sectionTitle: { ...typography.h4, color: colors.textPrimary, flexShrink: 1 },
   bodyText: { ...typography.body, color: colors.textSecondary },
   fuelOptions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
   fuelOption: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, backgroundColor: colors.surface3, borderWidth: 1, borderColor: colors.border },
-  fuelOptionSelected: { backgroundColor: colors.primary, borderColor: colors.accent },
-  fuelOptionText: { ...typography.captionBold, color: colors.textSecondary, letterSpacing: 0.4 },
-  fuelOptionTextSelected: { color: colors.onPrimary },
+  fuelOptionSelected: { backgroundColor: colors.primaryLight, borderColor: colors.primaryBorder },
+  fuelOptionText: { ...typography.captionBold, color: colors.textSecondary },
+  fuelOptionTextSelected: { color: colors.textPrimary },
   emptyReports: { marginTop: spacing.xs },
   reportList: { marginTop: spacing.sm },
   reportItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 56 },

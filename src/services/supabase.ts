@@ -49,7 +49,7 @@ export const ensureUserProfile = async (session: Session): Promise<UserProfile> 
     if (retry) return retry as UserProfile;
   }
 
-  if (insertError || !inserted) throw insertError ?? new Error('Failed to create profile');
+  if (insertError || !inserted) throw insertError ?? new Error('No se pudo crear tu perfil');
 
   return inserted as UserProfile;
 };

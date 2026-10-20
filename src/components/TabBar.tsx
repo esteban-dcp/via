@@ -5,9 +5,6 @@ import Animated, {
   useSharedValue,
   withSpring,
   withTiming,
-  withRepeat,
-  withSequence,
-  Easing,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -40,37 +37,21 @@ export const TabBar = ({ state, descriptors, navigation }: BottomTabBarProps) =>
   const slot = barWidth / Math.max(visibleRoutes.length, 1);
   const indicatorX = useSharedValue(0);
   const ctaVisible = useSharedValue(showCta ? 1 : 0);
-  const pulse = useSharedValue(0);
 
   useEffect(() => {
     indicatorX.value = withSpring(activeVisibleIndex * slot, motion.spring);
   }, [activeVisibleIndex, slot, indicatorX]);
 
   useEffect(() => {
-    ctaVisible.value = withSpring(showCta ? 1 : 0, motion.spring);
+    ctaVisible.value = withTiming(showCta ? 1 : 0, { duration: motion.fast });
   }, [showCta, ctaVisible]);
-
-  useEffect(() => {
-    pulse.value = withRepeat(
-      withSequence(withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.quad) }), withTiming(0, { duration: 1400, easing: Easing.inOut(Easing.quad) })),
-      -1,
-    );
-  }, [pulse]);
 
   const indicatorStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: indicatorX.value }],
     width: slot,
   }));
 
-  const ctaStyle = useAnimatedStyle(() => ({
-    opacity: ctaVisible.value,
-    transform: [{ translateY: (1 - ctaVisible.value) * 16 }, { scale: 0.92 + ctaVisible.value * 0.08 }],
-  }));
-
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: 0.18 + pulse.value * 0.22,
-    transform: [{ scale: 1 + pulse.value * 0.12 }],
-  }));
+  const ctaStyle = useAnimatedStyle(() => ({ opacity: ctaVisible.value }));
 
   const handleCta = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
@@ -87,12 +68,11 @@ export const TabBar = ({ state, descriptors, navigation }: BottomTabBarProps) =>
         pointerEvents={showCta ? 'box-none' : 'none'}
         style={[styles.ctaWrap, { bottom: bottom + BAR_HEIGHT + 12 }, ctaStyle]}
       >
-        <Animated.View style={[styles.ctaGlow, glowStyle]} />
         <Pressable
           onPress={handleCta}
           accessibilityRole="button"
           accessibilityLabel="Capturar precios de una estación"
-          style={({ pressed }) => [styles.cta, pressed && { transform: [{ scale: 0.96 }] }]}
+          style={({ pressed }) => [styles.cta, pressed && { opacity: 0.85 }]}
         >
           <Ionicons name="camera" size={18} color={colors.onPrimary} />
           <Text style={styles.ctaText}>Capturar precio</Text>
@@ -155,7 +135,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: 6,
-    ...shadows.lg,
+    ...shadows.sm,
   },
   inner: { flex: 1, flexDirection: 'row' },
   indicator: {
@@ -163,30 +143,20 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     left: 0,
-    borderRadius: 26,
+    borderRadius: BAR_HEIGHT / 2 - 6,
     backgroundColor: colors.primary,
   },
   tab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 1 },
   label: { fontFamily: fonts.semibold, fontSize: 10, letterSpacing: 0.2 },
-  ctaWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center', justifyContent: 'center' },
-  ctaGlow: {
-    position: 'absolute',
-    width: 190,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.primary,
-  },
+  ctaWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   cta: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    minHeight: 48,
-    paddingHorizontal: 20,
-    borderRadius: 24,
+    height: 44,
+    paddingHorizontal: 18,
+    borderRadius: 22,
     backgroundColor: colors.primary,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
-    ...shadows.md,
   },
   ctaText: { fontFamily: fonts.bold, fontSize: 14, color: colors.onPrimary, letterSpacing: 0.1 },
 });

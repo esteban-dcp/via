@@ -22,7 +22,7 @@ export const ShareCard = ({ result, userName, ref }: Props & { ref?: Ref<HostIns
   const freshness = getFreshness(result.priceDate);
   return (
     <View ref={ref} collapsable={false} style={styles.root}>
-      <LinearGradient colors={['#011360', '#021A70', '#034af8']} start={{ x: 0.2, y: 0 }} end={{ x: 0.9, y: 1 }} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[colors.background, colors.card, colors.primary]} start={{ x: 0.2, y: 0 }} end={{ x: 0.9, y: 1 }} style={StyleSheet.absoluteFill} />
       <View style={styles.orbA} />
       <View style={styles.orbB} />
 

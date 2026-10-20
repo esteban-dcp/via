@@ -1,9 +1,6 @@
-import { ActivityIndicator, Pressable, PressableProps, StyleSheet, TextStyle, ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, PressableProps, StyleProp, StyleSheet, TextStyle, ViewStyle } from 'react-native';
 import { Text } from './Text';
-import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useScalePress } from '../../hooks/useScalePress';
 import { colors, radius, spacing, typography } from '../../theme';
 
 type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
@@ -15,13 +12,13 @@ type Props = PressableProps & {
   icon?: keyof typeof Ionicons.glyphMap;
   loading?: boolean;
   title: string;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 };
 
-const sizeConfig: Record<ButtonSize, { py: number; px: number; iconSize: number; textStyle: TextStyle }> = {
-  sm: { py: 13, px: spacing.md, iconSize: 16, textStyle: typography.captionBold },
-  md: { py: 15, px: spacing.lg, iconSize: 18, textStyle: typography.bodyBold },
-  lg: { py: 18, px: spacing.xl, iconSize: 20, textStyle: typography.h4 },
+const sizeConfig: Record<ButtonSize, { h: number; px: number; iconSize: number; textStyle: TextStyle }> = {
+  sm: { h: 40, px: spacing.md, iconSize: 16, textStyle: { ...typography.captionBold, fontSize: 13, letterSpacing: 0 } },
+  md: { h: 48, px: spacing.lg, iconSize: 18, textStyle: { ...typography.bodyBold, fontSize: 14, lineHeight: 20 } },
+  lg: { h: 52, px: spacing.lg, iconSize: 20, textStyle: { ...typography.bodyBold, fontSize: 15, lineHeight: 20 } },
 };
 
 export const Button = ({
@@ -34,8 +31,7 @@ export const Button = ({
   style,
   ...rest
 }: Props) => {
-  const { animatedStyle, onPressIn, onPressOut } = useScalePress(0.96);
-
+  
   const cfg = sizeConfig[size];
   const isDisabled = disabled || loading;
 
@@ -58,57 +54,35 @@ export const Button = ({
     return colors.textPrimary;
   }
 
-  if (variant === 'primary') {
-    return (
-      <Animated.View style={[animatedStyle, style]}>
-        <Pressable
-          onPressIn={onPressIn}
-          onPressOut={onPressOut}
-          disabled={isDisabled}
-          {...rest}
-        >
-          <LinearGradient
-            colors={isDisabled ? [colors.surface3, colors.surface3] : [colors.primary, '#2F68FA']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[styles.base, { paddingVertical: cfg.py, paddingHorizontal: cfg.px, opacity: isDisabled ? 0.5 : 1 }]}
-          >
-            {content}
-          </LinearGradient>
-        </Pressable>
-      </Animated.View>
-    );
-  }
-
   const bgMap: Record<ButtonVariant, string> = {
     secondary: colors.surface2,
     danger: colors.dangerLight,
     ghost: 'transparent',
-    primary: 'transparent',
+    primary: colors.primary,
   };
 
   return (
-    <Animated.View style={[animatedStyle, style]}>
-      <Pressable
-        onPressIn={onPressIn}
-        onPressOut={onPressOut}
-        disabled={isDisabled}
-        style={[
-          styles.base,
-          {
-            backgroundColor: bgMap[variant],
-            paddingVertical: cfg.py,
-            paddingHorizontal: cfg.px,
-            opacity: isDisabled ? 0.4 : 1,
-          },
-          variant === 'danger' && styles.dangerBorder,
-          variant === 'secondary' && styles.secondaryBorder,
-        ]}
-        {...rest}
-      >
-        {content}
-      </Pressable>
-    </Animated.View>
+    <Pressable
+      disabled={isDisabled}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: !!isDisabled, busy: loading }}
+      hitSlop={size === 'sm' ? { top: 4, bottom: 4 } : undefined}
+      style={({ pressed }) => [
+        styles.base,
+        {
+          backgroundColor: isDisabled && variant === 'primary' ? colors.surface3 : bgMap[variant],
+          height: cfg.h,
+          paddingHorizontal: cfg.px,
+          opacity: isDisabled ? 0.5 : pressed ? 0.85 : 1,
+        },
+        variant === 'danger' && styles.dangerBorder,
+        variant === 'secondary' && styles.secondaryBorder,
+        style,
+      ]}
+      {...rest}
+    >
+      {content}
+    </Pressable>
   );
 };
 
@@ -118,8 +92,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    borderRadius: radius.lg,
-    minHeight: 48,
+    borderRadius: radius.md,
+    minWidth: 48,
   },
   secondaryBorder: {
     borderWidth: 1,

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInRight } from 'react-native-reanimated';
-import { useIsFocused, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { MapBackground } from '../components/MapView';
@@ -9,6 +9,7 @@ import { MapSearchBar } from '../components/MapSearchBar';
 import { StationDetailSheet } from '../components/StationDetailSheet';
 import { Button } from '../components/ui/Button';
 import { IconButton } from '../components/ui/IconButton';
+import { LocationBanner } from '../components/ui/LocationBanner';
 import { Text } from '../components/ui/Text';
 import { toast } from '../state/toastStore';
 import { useFavoritesStore } from '../state/favoritesStore';
@@ -16,6 +17,7 @@ import { useLocationStore } from '../state/locationStore';
 import { useUserStore } from '../state/userStore';
 import { getBestStation } from '../services/pricing';
 import { stationRepository } from '../services/stationRepository';
+import { distanceMeters } from '../services/location';
 import { colors, fonts, radius, shadows, spacing } from '../theme';
 import type { StationMarker } from '../types';
 
@@ -23,13 +25,10 @@ const SEARCH_HEIGHT = 52;
 
 export const MapScreen = () => {
   const insets = useSafeAreaInsets();
-  const isFocused = useIsFocused();
   const top = insets.top + spacing.md;
   const coords = useLocationStore((s) => s.coords);
   const status = useLocationStore((s) => s.status);
-  const locationError = useLocationStore((s) => s.error);
-  const startWatching = useLocationStore((s) => s.startWatching);
-  const stopWatching = useLocationStore((s) => s.stopWatching);
+  const errorCode = useLocationStore((s) => s.errorCode);
   const profile = useUserStore((s) => s.profile);
   const consumeAccess = useUserStore((s) => s.consumeAccess);
   const favIds = useFavoritesStore((s) => s.ids);
@@ -49,13 +48,7 @@ export const MapScreen = () => {
   const accessRemaining = profile?.access_remaining ?? 0;
   const locked = accessRemaining <= 0;
   const preferredFuel = profile?.preferred_fuel;
-  const permissionDenied = status === 'error' && !coords && !!locationError?.toLowerCase().includes('denegado');
-
-  useEffect(() => {
-    if (!isFocused) return;
-    startWatching().catch(() => {});
-    return () => stopWatching();
-  }, [isFocused, startWatching, stopWatching]);
+  const permissionDenied = errorCode === 'denied' && !coords;
 
   useEffect(() => {
     if (profile) loadFavs(profile.id);
@@ -81,12 +74,25 @@ export const MapScreen = () => {
     }
   }, [coords, preferredFuel]);
 
-  // Carga inicial al tener coords y al cambiar el combustible preferido.
-  const hasCoords = !!coords;
+  // Carga al tener coords, al cambiar combustible, y al pasar de punto guardado a fix en vivo
+  // o moverse >100 m del último punto cargado.
+  const source = useLocationStore((s) => s.source);
+  const loadedAt = useRef<{ latitude: number; longitude: number; live: boolean } | null>(null);
   useEffect(() => {
-    if (hasCoords) void load();
+    if (!coords) return;
+    const prev = loadedAt.current;
+    const live = source === 'live';
+    const moved = !prev || distanceMeters(prev, coords) > 100 || (live && !prev.live);
+    if (!moved) return;
+    loadedAt.current = { ...coords, live };
+    void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasCoords, preferredFuel]);
+  }, [coords, source]);
+
+  useEffect(() => {
+    if (loadedAt.current) void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preferredFuel]);
 
   // Reintentar no cuesta acceso: solo recarga.
   const handleRetry = useCallback(() => {
@@ -128,6 +134,7 @@ export const MapScreen = () => {
         mapRef={mapRef}
         interactive
         markers={filteredMarkers}
+        fitKey={allMarkers.map((m) => m.stationId).join('|')}
         onMarkerPress={handleMarkerPress}
         selectedStationId={selectedStation?.stationId}
         bestStationId={bestStationId}
@@ -152,6 +159,8 @@ export const MapScreen = () => {
               {accessRemaining} {accessRemaining === 1 ? 'acceso' : 'accesos'}
             </Text>
           </Animated.View>
+
+          {!!coords && <LocationBanner style={[styles.locBanner, { top: top + SEARCH_HEIGHT + spacing.sm + 36 + spacing.sm }]} />}
 
           <Animated.View entering={FadeInRight.delay(120).springify().damping(20)} style={[styles.controls, { top: top + SEARCH_HEIGHT + spacing.sm }]}>
             <IconButton icon="locate" label="Centrar en mi ubicación" onPress={handleRecenter} />
@@ -205,6 +214,7 @@ export const MapScreen = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  locBanner: { position: 'absolute', left: spacing.md, right: spacing.md + 56, zIndex: 40 },
   controls: { position: 'absolute', right: spacing.md, gap: spacing.sm, zIndex: 40 },
   accessPill: {
     position: 'absolute',

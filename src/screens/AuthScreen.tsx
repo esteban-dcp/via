@@ -4,7 +4,6 @@ import { Text } from '../components/ui/Text';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useUserStore } from '../state/userStore';
 import { supabase } from '../services/supabase';
 import { useScalePress } from '../hooks/useScalePress';
@@ -165,15 +164,6 @@ export const AuthScreen = () => {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={[colors.background, '#010E4A', colors.background]}
-        style={StyleSheet.absoluteFill}
-      />
-      <LinearGradient
-        colors={['rgba(3, 74, 248, 0.15)', 'rgba(3, 74, 248, 0.04)', 'transparent']}
-        style={[StyleSheet.absoluteFill, { top: 0, height: '50%' }]}
-        pointerEvents="none"
-      />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}

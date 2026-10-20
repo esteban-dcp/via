@@ -28,7 +28,8 @@ import type { FuelType, FuelPriceInput, StationMarker } from '../types';
 export const ContributeScreen = () => {
   const insets = useSafeAreaInsets();
   const { profile, refreshProfile, session } = useUserStore();
-  const { coords } = useLocationStore();
+  const coords = useLocationStore((s) => s.coords);
+  const getFreshFix = useLocationStore((s) => s.getFreshFix);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [prices, setPrices] = useState<FuelPriceInput>({});
   const [loading, setLoading] = useState(false);
@@ -36,6 +37,7 @@ export const ContributeScreen = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedStation, setSelectedStation] = useState<StationMarker | null>(null);
   const [showStationPicker, setShowStationPicker] = useState(false);
+  const [freshReady, setFreshReady] = useState(false);
   const [ocrDone, setOcrDone] = useState(false);
   const [ocrRawText, setOcrRawText] = useState<string>('');
   const [ocrConfidence, setOcrConfidence] = useState<number>(0);
@@ -95,10 +97,21 @@ export const ContributeScreen = () => {
   }, [coords]);
 
   useEffect(() => {
-    if (step === 'review' && coords) {
+    if (step === 'review' && coords && freshReady) {
       loadNearbyAndAutoSelect();
     }
-  }, [step, coords, loadNearbyAndAutoSelect]);
+  }, [step, coords, freshReady, loadNearbyAndAutoSelect]);
+
+  // Al entrar a revisión se fuerza un fix fresco: la lista de estaciones y la posición
+  // reportada deben reflejar dónde está el usuario ahora, no el último punto en caché.
+  useEffect(() => {
+    if (step !== 'review') {
+      setFreshReady(false);
+      return;
+    }
+    // Si no hay GPS se sigue con el último punto, pero ya sin esperar un fix mejor.
+    getFreshFix().catch(() => {}).finally(() => setFreshReady(true));
+  }, [step, getFreshFix]);
 
   const pickImage = useCallback(async () => {
     setLoading(true);
@@ -189,6 +202,12 @@ export const ContributeScreen = () => {
     setLoading(true);
     setError(null);
     try {
+      let position;
+      try {
+        position = await getFreshFix();
+      } catch {
+        throw new Error('Activa el GPS para enviar el reporte: necesitamos tu ubicación real.');
+      }
       const filename = `${profile.id}_${Date.now()}.jpg`;
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('reports')
@@ -212,8 +231,8 @@ export const ContributeScreen = () => {
         ocr_raw_text: ocrRawText || null,
         ocr_confidence: ocrConfidence > 0 ? ocrConfidence : null,
         station_id: selectedStation.stationId,
-        reported_lat: coords.latitude,
-        reported_lng: coords.longitude,
+        reported_lat: position.latitude,
+        reported_lng: position.longitude,
         status: 'pending',
       });
 
@@ -235,7 +254,7 @@ export const ContributeScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, [imageUri, session, profile, prices, selectedStation, refreshProfile, coords, ocrRawText, ocrConfidence]);
+  }, [imageUri, session, profile, prices, selectedStation, refreshProfile, getFreshFix, ocrRawText, ocrConfidence]);
 
   const handleCrop = useCallback((croppedUri: string) => {
     setImageUri(croppedUri);

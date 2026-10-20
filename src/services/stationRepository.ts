@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { Coordinates } from './location';
+import { distanceMeters, type Coordinates } from './location';
 import type { StationMarker } from '../types';
 
 type CacheEntry<T> = {
@@ -35,7 +35,7 @@ class StationRepository {
     const key = this.cacheKey(coords.latitude, coords.longitude, radiusMeters);
     const cached = this.nearbyCache.get(key);
     if (this.isFresh(cached)) {
-      return cached!.data;
+      return this.withDistancesFrom(coords, cached!.data);
     }
 
     const { data, error } = await supabase.rpc('get_nearby_stations', {
@@ -66,7 +66,15 @@ class StationRepository {
     }));
 
     this.nearbyCache.set(key, { data: markers, expiresAt: Date.now() + this.ttl });
-    return markers;
+    return this.withDistancesFrom(coords, markers);
+  }
+
+  // La caché se comparte entre puntos cercanos (celda ~1 km): la distancia se recalcula
+  // siempre desde la posición real del usuario para no mostrar la del punto cacheado.
+  private withDistancesFrom(coords: Coordinates, markers: StationMarker[]): StationMarker[] {
+    return markers
+      .map((m) => ({ ...m, distanceMeters: distanceMeters(coords, m) }))
+      .sort((a, b) => a.distanceMeters - b.distanceMeters);
   }
 
   invalidateNearbyCache(): void {
