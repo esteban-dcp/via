@@ -19,9 +19,9 @@ type Props = PressableProps & {
 };
 
 const sizeConfig: Record<ButtonSize, { py: number; px: number; iconSize: number; textStyle: TextStyle }> = {
-  sm: { py: 10, px: spacing.md, iconSize: 16, textStyle: typography.captionBold },
-  md: { py: 14, px: spacing.lg, iconSize: 18, textStyle: typography.bodyBold },
-  lg: { py: 16, px: spacing.xl, iconSize: 20, textStyle: typography.h4 },
+  sm: { py: 13, px: spacing.md, iconSize: 16, textStyle: typography.captionBold },
+  md: { py: 15, px: spacing.lg, iconSize: 18, textStyle: typography.bodyBold },
+  lg: { py: 18, px: spacing.xl, iconSize: 20, textStyle: typography.h4 },
 };
 
 export const Button = ({
@@ -46,14 +46,14 @@ export const Button = ({
       ) : (
         <>
           {icon && <Ionicons name={icon} size={cfg.iconSize} color={textColor()} />}
-          <Text style={[cfg.textStyle, { color: textColor() }]}>{title}</Text>
+          <Text style={[cfg.textStyle, { color: textColor() }]} numberOfLines={1}>{title}</Text>
         </>
       )}
     </>
   );
 
   function textColor() {
-    if (variant === 'primary') return colors.textPrimary;
+    if (variant === 'primary') return colors.onPrimary;
     if (variant === 'danger') return colors.danger;
     return colors.textPrimary;
   }
@@ -68,7 +68,7 @@ export const Button = ({
           {...rest}
         >
           <LinearGradient
-            colors={isDisabled ? [colors.textMuted, colors.textMuted] : [colors.primary, colors.accent]}
+            colors={isDisabled ? [colors.surface3, colors.surface3] : [colors.primary, '#2F68FA']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={[styles.base, { paddingVertical: cfg.py, paddingHorizontal: cfg.px, opacity: isDisabled ? 0.5 : 1 }]}
@@ -81,7 +81,7 @@ export const Button = ({
   }
 
   const bgMap: Record<ButtonVariant, string> = {
-    secondary: colors.surface1,
+    secondary: colors.surface2,
     danger: colors.dangerLight,
     ghost: 'transparent',
     primary: 'transparent',
@@ -119,6 +119,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.sm,
     borderRadius: radius.lg,
+    minHeight: 48,
   },
   secondaryBorder: {
     borderWidth: 1,

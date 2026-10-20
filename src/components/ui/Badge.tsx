@@ -17,7 +17,7 @@ const variantConfig: Record<BadgeVariant, { bg: string; text: string }> = {
   success: { bg: colors.successLight, text: colors.success },
   warning: { bg: colors.warningLight, text: colors.warning },
   danger: { bg: colors.dangerLight, text: colors.danger },
-  info: { bg: colors.primaryLight, text: colors.primary },
+  info: { bg: 'rgba(74, 122, 248, 0.2)', text: colors.accentSoft },
   neutral: { bg: colors.surface1, text: colors.textSecondary },
 };
 
@@ -38,12 +38,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: radius.full,
   },
   label: {
     ...typography.captionBold,
-    textTransform: 'capitalize',
   },
   badgeSm: {
     paddingHorizontal: 6,

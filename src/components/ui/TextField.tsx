@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, TextInputProps, View } from 'react-native';
 import { Text, TextInput } from './Text';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolateColor, Easing } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius, spacing, typography } from '../../theme';
+import { colors, fonts, radius, spacing, typography } from '../../theme';
 
 type Props = TextInputProps & {
   label?: string;
@@ -15,27 +15,14 @@ type Props = TextInputProps & {
 export const TextField = ({ label, icon, error, rightAction, style, ...rest }: Props) => {
   const [focused, setFocused] = useState(false);
   const borderColor = useSharedValue(0);
-  const scale = useSharedValue(1);
 
   useEffect(() => {
-    borderColor.value = withTiming(error ? 2 : focused ? 1 : 0, {
-      duration: 200,
-      easing: Easing.out(Easing.cubic),
-    });
-    if (focused) {
-      scale.value = withTiming(1.01, { duration: 150, easing: Easing.out(Easing.cubic) });
-    } else {
-      scale.value = withTiming(1, { duration: 150, easing: Easing.out(Easing.cubic) });
-    }
-  }, [focused, error]);
+    borderColor.value = withTiming(error ? 2 : focused ? 1 : 0, { duration: 180, easing: Easing.out(Easing.cubic) });
+  }, [focused, error, borderColor]);
 
-  const animatedRowStyle = useAnimatedStyle(() => {
-    const borderColors = [colors.border, colors.primary, colors.danger];
-    return {
-      borderColor: borderColors[borderColor.value] || colors.border,
-      transform: [{ scale: scale.value }],
-    };
-  });
+  const animatedRowStyle = useAnimatedStyle(() => ({
+    borderColor: interpolateColor(borderColor.value, [0, 1, 2], [colors.border, colors.accent, colors.danger]),
+  }));
 
   return (
     <View style={style}>
@@ -71,17 +58,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.surface2,
+    backgroundColor: colors.surface3,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
-    paddingVertical: 12,
-    borderWidth: 1,
+    minHeight: 52,
+    borderWidth: 1.5,
     borderColor: colors.border,
   },
   input: {
     flex: 1,
     color: colors.textPrimary,
     fontSize: 15,
+    fontFamily: fonts.medium,
+    paddingVertical: 10,
   },
   errorRow: {
     flexDirection: 'row',

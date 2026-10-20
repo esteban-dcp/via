@@ -14,10 +14,10 @@ export const Card = ({ children, variant = 'glass', style }: Props) => (
 
 const variantStyles: Record<string, ViewStyle> = {
   glass: {
-    backgroundColor: colors.glass,
+    backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
-    ...shadows.md,
+    ...shadows.sm,
   },
   elevated: {
     backgroundColor: colors.card,
