@@ -11,6 +11,9 @@ type LocationState = {
   stopWatching: () => void;
 };
 
+// Varias pantallas observan la ubicación; solo se detiene la suscripción global al soltar la última.
+let watchers = 0;
+
 export const useLocationStore = create<LocationState>((set) => ({
   coords: null,
   status: 'idle',
@@ -27,6 +30,7 @@ export const useLocationStore = create<LocationState>((set) => ({
   },
 
   startWatching: async () => {
+    watchers += 1;
     set({ status: 'loading', error: null });
     try {
       const initial = await requestLocation();
@@ -41,6 +45,7 @@ export const useLocationStore = create<LocationState>((set) => ({
   },
 
   stopWatching: () => {
-    stopWatchingLocation();
+    watchers = Math.max(0, watchers - 1);
+    if (watchers === 0) stopWatchingLocation();
   },
 }));

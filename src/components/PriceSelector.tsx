@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
@@ -34,14 +34,20 @@ function DigitColumn({ digit, label, onChange }: DigitColumnProps) {
   // pos: posición flotante de la rueda (0..10); el dígito activo es round(pos) mod 10.
   const pos = useSharedValue(digit);
   const lastTick = useSharedValue(digit);
+  const interacting = useSharedValue(false);
+  const emitted = useRef(digit);
 
   const tick = useCallback((d: number) => {
+    emitted.current = d;
     Haptics.selectionAsync().catch(() => {});
     onChange(d);
   }, [onChange]);
 
   // Sincroniza con el valor externo (OCR, edición) por el camino más corto.
   useEffect(() => {
+    // Durante el gesto manda la rueda; solo sincroniza cambios externos (OCR, edición).
+    if (interacting.value || digit === emitted.current) return;
+    emitted.current = digit;
     const current = mod10(Math.round(pos.value));
     if (current === digit) return;
     let delta = digit - current;
@@ -49,14 +55,18 @@ function DigitColumn({ digit, label, onChange }: DigitColumnProps) {
     if (delta < -5) delta += 10;
     lastTick.value = digit;
     pos.value = withSpring(Math.round(pos.value) + delta, motion.spring);
-  }, [digit, pos, lastTick]);
+  }, [digit, pos, lastTick, interacting]);
 
   const settle = (target: number) => {
     'worklet';
     const rounded = Math.round(Math.max(pos.value - 8, Math.min(pos.value + 8, target)));
+    interacting.value = true;
     pos.value = withSpring(rounded, motion.spring, (finished) => {
       // Normaliza para que la rueda nunca salga del rango de las tres copias.
-      if (finished) pos.value = mod10(pos.value);
+      if (finished) {
+        pos.value = mod10(pos.value);
+        interacting.value = false;
+      }
     });
     const d = mod10(rounded);
     if (d !== lastTick.value) {
@@ -66,16 +76,22 @@ function DigitColumn({ digit, label, onChange }: DigitColumnProps) {
   };
 
   const pan = Gesture.Pan()
-    .onBegin(() => {
+    .onStart(() => {
+      interacting.value = true;
       pos.value = mod10(pos.value); // detiene animaciones y normaliza (las copias son idénticas)
     })
     .onChange((e) => {
       pos.value -= e.changeY / ITEM_HEIGHT;
+      if (pos.value > 14) pos.value -= 10;
+      if (pos.value < -4) pos.value += 10;
       const d = mod10(Math.round(pos.value));
       if (d !== lastTick.value) {
         lastTick.value = d;
         runOnJS(tick)(d);
       }
+    })
+    .onFinalize((_e, success) => {
+      if (!success) settle(pos.value);
     })
     .onEnd((e) => {
       const projected = pos.value - e.velocityY / ITEM_HEIGHT / 6;
@@ -106,7 +122,7 @@ function DigitColumn({ digit, label, onChange }: DigitColumnProps) {
       >
         <Animated.View style={stripStyle}>
           {STRIP.map((d, i) => (
-            <Text key={i} style={colStyles.digit}>{d}</Text>
+            <Text key={i} style={colStyles.digit} maxFontSizeMultiplier={1}>{d}</Text>
           ))}
         </Animated.View>
         <LinearGradient

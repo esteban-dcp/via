@@ -88,12 +88,18 @@ export const MapScreen = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasCoords, preferredFuel]);
 
-  const handleRefresh = useCallback(() => {
+  // Reintentar no cuesta acceso: solo recarga.
+  const handleRetry = useCallback(() => {
     stationRepository.invalidateNearbyCache();
     setMapOffline(false);
     void load();
+  }, [load]);
+
+  // El icono de actualizar sí consume un acceso.
+  const handleRefresh = useCallback(() => {
+    handleRetry();
     if (!locked) consumeAccess().catch(() => {});
-  }, [load, locked, consumeAccess]);
+  }, [handleRetry, locked, consumeAccess]);
 
   const filteredMarkers = useMemo(() => {
     let result = allMarkers;
@@ -182,7 +188,7 @@ export const MapScreen = () => {
             title={permissionDenied ? 'Ajustes' : 'Reintentar'}
             size="sm"
             variant="secondary"
-            onPress={permissionDenied ? () => Linking.openSettings().catch(() => {}) : handleRefresh}
+            onPress={permissionDenied ? () => Linking.openSettings().catch(() => {}) : handleRetry}
           />
         </Animated.View>
       )}

@@ -11,6 +11,8 @@ import type { StationResult } from '../types';
 /** Tamaño lógico 360x450; se captura a 1080x1350. Solo iconos, sin emojis. */
 export const SHARE_CARD_SIZE = { width: 360, height: 450, outWidth: 1080, outHeight: 1350 };
 
+const PILL_BG = { success: 'rgba(53,208,127,0.95)', warning: 'rgba(255,181,71,0.95)', danger: 'rgba(255,92,92,0.95)', neutral: 'rgba(166,176,214,0.9)' } as const;
+
 type Props = { result: StationResult; userName?: string | null };
 
 const formatDistance = (m: number) => (m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`);
@@ -29,8 +31,8 @@ export const ShareCard = forwardRef<View, Props>(({ result, userName }, ref) => 
       </View>
 
       <View style={styles.center}>
-        <View style={styles.pill}>
-          <Ionicons name={freshness.tier === 'super' ? 'flash' : 'checkmark-circle'} size={14} color={colors.onPrimary} />
+        <View style={[styles.pill, { backgroundColor: PILL_BG[freshness.variant] }]}>
+          <Ionicons name={freshness.icon} size={14} color={colors.background} />
           <Text style={styles.pillText}>{freshness.label}</Text>
         </View>
         <Text style={styles.kicker}>Mejor precio cerca de mí</Text>
@@ -71,7 +73,7 @@ const styles = StyleSheet.create({
   logo: { width: 34, height: 34, borderRadius: 9 },
   brand: { fontFamily: fonts.extrabold, fontSize: 22, color: colors.onPrimary, letterSpacing: 2 },
   center: { alignItems: 'center', gap: 6 },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(53,208,127,0.9)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, marginBottom: 10 },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, marginBottom: 10 },
   pillText: { fontFamily: fonts.bold, fontSize: 12, color: colors.background },
   kicker: { fontFamily: fonts.semibold, fontSize: 13, color: colors.textSecondary, letterSpacing: 0.4 },
   price: { fontFamily: fonts.extrabold, fontSize: 84, color: colors.onPrimary, letterSpacing: -3, lineHeight: 92, maxWidth: 300 },
