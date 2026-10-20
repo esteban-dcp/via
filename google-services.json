@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1037650632106",
+    "project_id": "via-app-ecuador",
+    "storage_bucket": "via-app-ecuador.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1037650632106:android:cba46bdf785b56301c5fd3",
+        "android_client_info": {
+          "package_name": "com.siramong.via"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAzFL9bZo9oShXcPbTOYlSK3iqcRWK3kHk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
