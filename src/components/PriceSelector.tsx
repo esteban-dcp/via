@@ -1,130 +1,152 @@
-import { useCallback, useRef } from 'react';
-import { PanResponder, Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { Text } from './ui/Text';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
-import { colors, radius, spacing, typography } from '../theme';
+import { colors, fonts, motion, radius, spacing, typography } from '../theme';
 
-const ITEM_HEIGHT = 36;
-const SNAP_THRESHOLD = ITEM_HEIGHT * 0.35;
+const ITEM_HEIGHT = 44;
+const COLUMN_WIDTH = 48;
+const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+// Tres copias de 0-9 para que el giro sea infinito sin saltos visibles.
+const STRIP = [...DIGITS, ...DIGITS, ...DIGITS];
+
+const mod10 = (n: number) => {
+  'worklet';
+  return ((n % 10) + 10) % 10;
+};
 
 type DigitColumnProps = {
   digit: number;
-  max: number;
+  label: string;
   onChange: (next: number) => void;
 };
 
-function DigitColumn({ digit, max, onChange }: DigitColumnProps) {
-  const translateY = useSharedValue(0);
-  const currentDigit = useRef(digit);
-  const maxRef = useRef(max);
-  const onChangeRef = useRef(onChange);
-  currentDigit.current = digit;
-  maxRef.current = max;
-  onChangeRef.current = onChange;
+/** Rueda de un dígito, estilo reloj de mesa: arrastra, lanza o toca el dígito vecino. */
+function DigitColumn({ digit, label, onChange }: DigitColumnProps) {
+  // pos: posición flotante de la rueda (0..10); el dígito activo es round(pos) mod 10.
+  const pos = useSharedValue(digit);
+  const lastTick = useSharedValue(digit);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dy) > 5,
-      onPanResponderGrant: () => {
-        translateY.value = withTiming(0, { duration: 100 });
-      },
-      onPanResponderMove: (_, gs) => {
-        translateY.value = gs.dy;
-      },
-      onPanResponderRelease: (_, gs) => {
-        const delta = -gs.dy;
-        if (Math.abs(delta) > SNAP_THRESHOLD) {
-          const steps = Math.round(delta / ITEM_HEIGHT);
-          let next = currentDigit.current + steps;
-          next = ((next % (maxRef.current + 1)) + (maxRef.current + 1)) % (maxRef.current + 1);
-          onChangeRef.current(next);
-        }
-        translateY.value = withSpring(0, { damping: 18, stiffness: 200 });
-      },
-      onPanResponderTerminate: () => {
-        translateY.value = withSpring(0, { damping: 18, stiffness: 200 });
-      },
-    }),
-  ).current;
+  const tick = useCallback((d: number) => {
+    Haptics.selectionAsync().catch(() => {});
+    onChange(d);
+  }, [onChange]);
 
-  const increment = useCallback(() => {
-    const next = digit >= max ? 0 : digit + 1;
-    onChange(next);
-  }, [digit, max, onChange]);
+  // Sincroniza con el valor externo (OCR, edición) por el camino más corto.
+  useEffect(() => {
+    const current = mod10(Math.round(pos.value));
+    if (current === digit) return;
+    let delta = digit - current;
+    if (delta > 5) delta -= 10;
+    if (delta < -5) delta += 10;
+    lastTick.value = digit;
+    pos.value = withSpring(Math.round(pos.value) + delta, motion.spring);
+  }, [digit, pos, lastTick]);
 
-  const decrement = useCallback(() => {
-    const next = digit <= 0 ? max : digit - 1;
-    onChange(next);
-  }, [digit, max, onChange]);
+  const settle = (target: number) => {
+    'worklet';
+    const rounded = Math.round(Math.max(pos.value - 8, Math.min(pos.value + 8, target)));
+    pos.value = withSpring(rounded, motion.spring, (finished) => {
+      // Normaliza para que la rueda nunca salga del rango de las tres copias.
+      if (finished) pos.value = mod10(pos.value);
+    });
+    const d = mod10(rounded);
+    if (d !== lastTick.value) {
+      lastTick.value = d;
+      runOnJS(tick)(d);
+    }
+  };
 
-  const topDigit = ((digit - 1) + (max + 1)) % (max + 1);
-  const bottomDigit = ((digit + 1) + (max + 1)) % (max + 1);
+  const pan = Gesture.Pan()
+    .onBegin(() => {
+      pos.value = mod10(pos.value); // detiene animaciones y normaliza (las copias son idénticas)
+    })
+    .onChange((e) => {
+      pos.value -= e.changeY / ITEM_HEIGHT;
+      const d = mod10(Math.round(pos.value));
+      if (d !== lastTick.value) {
+        lastTick.value = d;
+        runOnJS(tick)(d);
+      }
+    })
+    .onEnd((e) => {
+      const projected = pos.value - e.velocityY / ITEM_HEIGHT / 6;
+      settle(projected);
+    });
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
+  const tap = Gesture.Tap().onEnd((e) => {
+    if (e.y < ITEM_HEIGHT) settle(Math.round(pos.value) - 1);
+    else if (e.y > ITEM_HEIGHT * 2) settle(Math.round(pos.value) + 1);
+  });
+
+  const stripStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -(pos.value + 10 - 1) * ITEM_HEIGHT }],
   }));
 
+  const adjust = (dir: 1 | -1) => settle(Math.round(pos.value) + dir);
+
   return (
-    <View style={colStyles.container}>
-      <Pressable style={colStyles.arrow} onPress={increment}>
-        <Text style={colStyles.arrowIcon}>▲</Text>
-      </Pressable>
-      <View style={colStyles.window} {...panResponder.panHandlers}>
-        <Animated.View style={[colStyles.strip, animatedStyle]}>
-          <Text style={colStyles.digitAdj}>{topDigit}</Text>
-          <Text style={colStyles.digitActive}>{digit}</Text>
-          <Text style={colStyles.digitAdj}>{bottomDigit}</Text>
+    <GestureDetector gesture={Gesture.Exclusive(pan, tap)}>
+      <View
+        style={colStyles.window}
+        accessible
+        accessibilityRole="adjustable"
+        accessibilityLabel={label}
+        accessibilityValue={{ text: String(digit) }}
+        accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+        onAccessibilityAction={(e) => adjust(e.nativeEvent.actionName === 'increment' ? 1 : -1)}
+      >
+        <Animated.View style={stripStyle}>
+          {STRIP.map((d, i) => (
+            <Text key={i} style={colStyles.digit}>{d}</Text>
+          ))}
         </Animated.View>
+        <LinearGradient
+          pointerEvents="none"
+          colors={[colors.surface3, 'rgba(1,15,76,0)', 'rgba(1,15,76,0)', colors.surface3]}
+          locations={[0, 0.3, 0.7, 1]}
+          style={StyleSheet.absoluteFill}
+        />
+        <View pointerEvents="none" style={colStyles.band} />
       </View>
-      <Pressable style={colStyles.arrow} onPress={decrement}>
-        <Text style={colStyles.arrowIcon}>▼</Text>
-      </Pressable>
-    </View>
+    </GestureDetector>
   );
 }
 
 const colStyles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    width: 36,
-  },
-  arrow: {
-    paddingVertical: 3,
-    alignItems: 'center',
-    width: '100%',
-  },
-  arrowIcon: {
-    color: colors.textMuted,
-    fontSize: 8,
-  },
   window: {
+    width: COLUMN_WIDTH,
     height: ITEM_HEIGHT * 3,
     overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: radius.sm,
   },
-  strip: {
-    alignItems: 'center',
-  },
-  digitAdj: {
+  digit: {
     height: ITEM_HEIGHT,
-    textAlign: 'center',
-    textAlignVertical: 'center',
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.textMuted,
     lineHeight: ITEM_HEIGHT,
-    opacity: 0.5,
-  },
-  digitActive: {
-    height: ITEM_HEIGHT,
     textAlign: 'center',
-    textAlignVertical: 'center',
-    fontSize: 30,
-    fontWeight: '800',
+    fontFamily: fonts.extrabold,
+    fontSize: 32,
     color: colors.textPrimary,
-    lineHeight: ITEM_HEIGHT,
+    includeFontPadding: false,
+  },
+  band: {
+    position: 'absolute',
+    top: ITEM_HEIGHT,
+    left: 0,
+    right: 0,
+    height: ITEM_HEIGHT,
+    borderRadius: radius.sm,
+    borderWidth: 1.5,
+    borderColor: colors.accent,
+    backgroundColor: 'rgba(74, 122, 248, 0.12)',
   },
 });
 
@@ -135,83 +157,48 @@ type Props = {
   onChange: (next: number) => void;
 };
 
-export const PriceSelector = ({ label, value, step = 0.01, onChange }: Props) => {
-  const integerPart = Math.floor(value);
-  const fractionalPart = Math.round((value - integerPart) * 100);
+export const PriceSelector = ({ label, value, onChange }: Props) => {
+  const cents = Math.min(9999, Math.max(0, Math.round(value * 100)));
+  const tens = Math.floor(cents / 1000) % 10;
+  const units = Math.floor(cents / 100) % 10;
+  const tenths = Math.floor(cents / 10) % 10;
+  const hundredths = cents % 10;
 
-  const tens = Math.floor(integerPart / 10) % 10;
-  const units = integerPart % 10;
-  const tenths = Math.floor(fractionalPart / 10) % 10;
-  const hundredths = fractionalPart % 10;
-
-  const updateDigit = useCallback((pos: 'tens' | 'units' | 'tenths' | 'hundredths', digit: number) => {
-    let newInt = Math.floor(value);
-    let newFrac = Math.round((value - newInt) * 100);
-
-    switch (pos) {
-      case 'tens':
-        newInt = digit * 10 + (newInt % 10);
-        break;
-      case 'units':
-        newInt = (Math.floor(newInt / 10) * 10) + digit;
-        break;
-      case 'tenths':
-        newFrac = digit * 10 + (newFrac % 10);
-        break;
-      case 'hundredths':
-        newFrac = (Math.floor(newFrac / 10) * 10) + digit;
-        break;
-    }
-
-    const next = Number((newInt + newFrac / 100).toFixed(2));
-    onChange(next);
-  }, [value, onChange]);
+  const setDigit = useCallback((place: 1000 | 100 | 10 | 1, digit: number) => {
+    const current = Math.floor(cents / place) % 10;
+    onChange((cents + (digit - current) * place) / 100);
+  }, [cents, onChange]);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={styles.spinnerRow}>
-        <Text style={styles.currency}>$</Text>
-        <DigitColumn digit={tens} max={9} onChange={(d) => updateDigit('tens', d)} />
-        <DigitColumn digit={units} max={9} onChange={(d) => updateDigit('units', d)} />
-        <Text style={styles.decimal}>.</Text>
-        <DigitColumn digit={tenths} max={9} onChange={(d) => updateDigit('tenths', d)} />
-        <DigitColumn digit={hundredths} max={9} onChange={(d) => updateDigit('hundredths', d)} />
+      <View style={styles.head}>
+        <Text style={styles.label}>{label}</Text>
+        <Text style={styles.value} accessibilityLabel={`${label}: ${value.toFixed(2)} dólares`}>${value.toFixed(2)}</Text>
       </View>
+      <GestureHandlerRootView style={styles.spinnerRow}>
+        <Text style={styles.currency}>$</Text>
+        <DigitColumn digit={tens} label={`${label}, decenas`} onChange={(d) => setDigit(1000, d)} />
+        <DigitColumn digit={units} label={`${label}, unidades`} onChange={(d) => setDigit(100, d)} />
+        <Text style={styles.decimal}>.</Text>
+        <DigitColumn digit={tenths} label={`${label}, décimas`} onChange={(d) => setDigit(10, d)} />
+        <DigitColumn digit={hundredths} label={`${label}, centésimas`} onChange={(d) => setDigit(1, d)} />
+      </GestureHandlerRootView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.surface1,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    backgroundColor: colors.surface3,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  label: {
-    ...typography.label,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-    textTransform: 'capitalize',
-  },
-  spinnerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  currency: {
-    color: colors.textSecondary,
-    fontSize: 26,
-    fontWeight: '800',
-    marginRight: spacing.xs,
-    marginTop: -2,
-  },
-  decimal: {
-    color: colors.textPrimary,
-    fontSize: 28,
-    fontWeight: '800',
-    marginTop: -4,
-    marginHorizontal: 2,
-  },
+  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
+  label: { ...typography.label, color: colors.textSecondary },
+  value: { ...typography.captionBold, color: colors.accentSoft, fontVariant: ['tabular-nums'] },
+  spinnerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
+  currency: { fontFamily: fonts.extrabold, fontSize: 28, color: colors.textSecondary, marginRight: 4 },
+  decimal: { fontFamily: fonts.extrabold, fontSize: 32, color: colors.textPrimary, marginHorizontal: 2, alignSelf: 'center', marginTop: 2 },
 });

@@ -11,7 +11,7 @@ import { CropTool } from '../components/CropTool';
 import { PriceSelector } from '../components/PriceSelector';
 import { PhotoPreview } from '../components/PhotoPreview';
 import { StationSelector } from '../components/StationSelector';
-import { MapBackground } from '../components/MapView';
+import { Stepper } from '../components/Stepper';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -143,7 +143,7 @@ export const ContributeScreen = () => {
       setOcrDone(false);
       setStep('crop');
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown camera error';
+      const msg = err instanceof Error ? err.message : 'Error desconocido de la cámara';
       console.error('[Camera]', msg);
       setError(msg);
     } finally {
@@ -156,7 +156,7 @@ export const ContributeScreen = () => {
     try {
       const { output } = await runOcrWithRetries(uri);
       setPrices(output.prices);
-      setOcrRawText(output.rawText || '(empty)');
+      setOcrRawText(output.rawText || '');
       setOcrConfidence(output.confidence);
       if (output.error) {
         setOcrError(output.error);
@@ -262,33 +262,30 @@ export const ContributeScreen = () => {
 
   return (
     <View style={styles.container}>
-      <MapBackground />
-
       {step === 'crop' && imageUri ? (
         <CropTool uri={imageUri} onCrop={handleCrop} onCancel={resetAll} />
       ) : (
-        <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + 100 }]}>
+        <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + 120 }]}>
           <View style={styles.header}>
-            <View style={styles.headerIcon}>
-              <Ionicons name="camera" size={18} color={colors.textPrimary} />
-            </View>
             <View style={styles.headerText}>
               <Text style={styles.title}>Contribuir</Text>
               <Text style={styles.subtitle}>Comparte precios frescos y gana acceso.</Text>
             </View>
           </View>
 
+          <Stepper steps={['Foto', 'Recorte', 'Precios', 'Enviar']} current={step === 'camera' ? 0 : step === 'review' ? 2 : 3} />
+
           {step === 'camera' && (
             <Animated.View style={stepStyle}>
               <Card variant="glass">
                 <View style={styles.sectionHeader}>
-                  <Ionicons name="camera" size={18} color={colors.primary} />
+                  <Ionicons name="camera" size={18} color={colors.accentSoft} />
                   <Text style={styles.sectionTitle}>Captura el display del surtidor</Text>
                 </View>
                 <Text style={styles.bodyText}>
                   Una foto clara mejora la precisión del OCR y acelera la revisión.
                 </Text>
-                {!!error && <Text style={styles.error}>{error}</Text>}
+                {!!error && <Text style={styles.error} accessibilityRole="alert">{error}</Text>}
                 <Button
                   title="Abrir cámara"
                   icon="camera"
@@ -308,14 +305,14 @@ export const ContributeScreen = () => {
 
               <Card variant="glass" style={{ marginTop: spacing.md }}>
                 <View style={styles.sectionHeader}>
-                  <Ionicons name="pricetags" size={18} color={colors.primary} />
+                  <Ionicons name="pricetags" size={18} color={colors.accentSoft} />
                   <Text style={styles.sectionTitle}>Precios</Text>
                 </View>
                 <Text style={styles.bodyText}>
                     {ocrDone ? 'Ajusta cualquier valor incorrecto abajo.' : 'Ejecutando OCR...'}
                 </Text>
                 {loading && !ocrDone ? (
-                  <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.md }} />
+                  <ActivityIndicator color={colors.accent} style={{ marginTop: spacing.md }} />
                 ) : (
                   <View style={styles.prices}>
                     {allFuelTypes.map((fuelType) => (
@@ -332,7 +329,7 @@ export const ContributeScreen = () => {
 
               <Card variant="glass" style={{ marginTop: spacing.md }}>
                 <View style={styles.sectionHeader}>
-                  <Ionicons name="location" size={18} color={colors.primary} />
+                  <Ionicons name="location" size={18} color={colors.accentSoft} />
                   <Text style={styles.sectionTitle}>Estación</Text>
                 </View>
                 <Text style={styles.bodyText}>
@@ -348,7 +345,7 @@ export const ContributeScreen = () => {
                 />
               </Card>
 
-              {!!error && <Text style={styles.error}>{error}</Text>}
+              {!!error && <Text style={styles.error} accessibilityRole="alert">{error}</Text>}
 
               <View style={styles.actions}>
                 <Button title="Atrás" variant="secondary" icon="arrow-back" onPress={resetAll} size="md" style={{ flex: 1 }} />
@@ -402,7 +399,7 @@ export const ContributeScreen = () => {
                   </View>
                 </View>
 
-                {!!error && <Text style={styles.error}>{error}</Text>}
+                {!!error && <Text style={styles.error} accessibilityRole="alert">{error}</Text>}
 
                 <View style={styles.actions}>
                   <Button
@@ -457,7 +454,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
   },
   headerIcon: {
     width: 40,
@@ -471,7 +468,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    ...typography.h3,
+    ...typography.h1,
     color: colors.textPrimary,
   },
   subtitle: {
