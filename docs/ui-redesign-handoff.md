@@ -44,7 +44,7 @@ Base: `dev/better-interface.md` y `dev/listed-problems.md` (feedback del dueño;
 - Tab names usados por la navegación y el tap de notificaciones: `Home`, `Contribute`, `Map`, `Profile`.
 
 ## Estado de release (no es UI, pero bloquea Play)
-Hecho: migraciones 007–010 aplicadas en Supabase, edge function `notify-favorites` con secreto de webhook, permisos Android limpios, targetSdk 36, `eas.json` con AAB + autoIncrement, web en `https://via.siramong.qzz.io` (landing, `/privacy`, `/terms`, `/admin` con Google).
+Hecho: migraciones 007–010 aplicadas en Supabase, edge function `notify-favorites` con secreto de webhook, permisos Android limpios, targetSdk 36, `eas.json` con AAB + autoIncrement, web en `https://via.inntratec.com` (landing, `/privacy`, `/terms`, `/admin` con Google).
 Falta: `google-services.json` + clave FCM en EAS; secretos en EAS (`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_OCR_SPACE_API_KEY`); mover OCR.space a una Edge Function (la clave va en el bundle); Data Safety y correo de contacto en Play Console; feature graphic 1024x500 y capturas; bucket `reports` público (pasar a privado con URLs firmadas); Sentry/ErrorBoundary; tests de `ocr.ts` y `pricing.ts`; `npx expo install --check` (10 paquetes desactualizados).
 
 ## Cómo probar

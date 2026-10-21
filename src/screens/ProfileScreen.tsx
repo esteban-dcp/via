@@ -107,7 +107,7 @@ export const ProfileScreen = () => {
     );
   }, [deleteAccount]);
 
-  const webBase = process.env.EXPO_PUBLIC_WEB_URL || 'https://via.siramong.qzz.io';
+  const webBase = process.env.EXPO_PUBLIC_WEB_URL || 'https://via.inntratec.com';
   const openUrl = useCallback((url: string) => Linking.openURL(url).catch(() => toast.error('No se pudo abrir el enlace')), []);
 
   if (!profile) {

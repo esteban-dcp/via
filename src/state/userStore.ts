@@ -5,7 +5,7 @@ import type { FuelType, UserProfile } from '../types';
 import { ensureUserProfile, refreshUserProfile, supabase } from '../services/supabase';
 import { consumeAccess as consumeAccessRpc, grantAccess as grantAccessRpc } from '../services/pricing';
 
-const WEB_BASE_URL = process.env.EXPO_PUBLIC_WEB_URL || 'https://via.siramong.qzz.io';
+const WEB_BASE_URL = process.env.EXPO_PUBLIC_WEB_URL || 'https://via.inntratec.com';
 
 type UserState = {
   session: Session | null;
